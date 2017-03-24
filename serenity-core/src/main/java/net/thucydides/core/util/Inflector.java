@@ -1,5 +1,7 @@
 package net.thucydides.core.util;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Set;
@@ -158,7 +160,7 @@ public class Inflector {
      * @param words the word to be capitalized
      * @return the string with the first character capitalized and the remaining characters lowercased
      */
-    public String capitalize( String words ) {
+    public String capitalize( String words) {
         if (words == null) return null;
         String result = words.trim();
         if (result.length() == 0) return "";
@@ -186,6 +188,22 @@ public class Inflector {
      */
     public String humanize( String lowerCaseAndUnderscoredWords,
                             String... removableTokens ) {
+
+        String result = humanReadableFormOf(lowerCaseAndUnderscoredWords, removableTokens);
+
+        Set<Acronym> acronyms = Acronym.acronymsIn(result);
+
+        result = result.toLowerCase();
+
+        for(Acronym acronym : acronyms) {
+            result = acronym.restoreIn(result);
+        }
+
+        return StringUtils.capitalize(result);
+    }
+
+    protected String humanReadableFormOf(String lowerCaseAndUnderscoredWords,
+                                         String... removableTokens) {
         if (lowerCaseAndUnderscoredWords == null) return null;
         String result = lowerCaseAndUnderscoredWords.trim();
         if (result.length() == 0) return "";
@@ -198,7 +216,8 @@ public class Inflector {
             }
         }
         result = result.replaceAll("_+", " "); // replace all adjacent underscores with a single space
-        return capitalize(result);
+
+        return result;
     }
 
     /**
@@ -261,7 +280,7 @@ public class Inflector {
                              String... removableTokens ) {
         String result = humanize(words, removableTokens);
         result = replaceAllWithUppercase(result, "\\b([a-z])", 1); // change first char of each word to uppercase
-        return result;
+        return result.trim();
     }
 
     // ------------------------------------------------------------------------------------------------

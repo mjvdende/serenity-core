@@ -6,19 +6,23 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import net.thucydides.core.ThucydidesSystemProperty;
 import net.thucydides.core.issues.IssueTracking;
-import net.thucydides.core.model.*;
+import net.thucydides.core.model.OutcomeCounter;
+import net.thucydides.core.model.Release;
+import net.thucydides.core.model.TestOutcome;
+import net.thucydides.core.model.TestType;
 import net.thucydides.core.releases.ReleaseManager;
 import net.thucydides.core.reports.TestOutcomes;
 import net.thucydides.core.reports.html.ReportNameProvider;
+import net.thucydides.core.requirements.ExcludedUnrelatedRequirementTypes;
 import net.thucydides.core.requirements.RequirementsTagProvider;
 import net.thucydides.core.requirements.model.Requirement;
 import net.thucydides.core.util.EnvironmentVariables;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static ch.lambdaj.Lambda.*;
+import static org.apache.commons.lang3.StringUtils.isEmpty;
 import static org.hamcrest.Matchers.hasItem;
 
 /**
@@ -33,8 +37,11 @@ public class RequirementsOutcomes {
     private final List<? extends RequirementsTagProvider> requirementsTagProviders;
     private final ReleaseManager releaseManager;
     private final ReportNameProvider reportNameProvider;
+    List<RequirementOutcome> flattenedRequirementOutcomes = null;
 
     public final static Integer DEFAULT_TESTS_PER_REQUIREMENT = 4;
+
+    private final Map<String, Integer> totalCountCache = new ConcurrentHashMap<>();
 
     public RequirementsOutcomes(List<Requirement> requirements,
                                 TestOutcomes testOutcomes,
@@ -59,6 +66,17 @@ public class RequirementsOutcomes {
         this.releaseManager = new ReleaseManager(environmentVariables, reportNameProvider);
     }
 
+    RequirementsOutcomes(ReportNameProvider reportNameProvider, List<RequirementOutcome> requirementOutcomes, TestOutcomes testOutcomes, Optional<Requirement> parentRequirement, EnvironmentVariables environmentVariables, IssueTracking issueTracking, List<? extends RequirementsTagProvider> requirementsTagProviders, ReleaseManager releaseManager) {
+        this.reportNameProvider = reportNameProvider;
+        this.requirementOutcomes = requirementOutcomes;
+        this.testOutcomes = testOutcomes;
+        this.parentRequirement = parentRequirement;
+        this.environmentVariables = environmentVariables;
+        this.issueTracking = issueTracking;
+        this.requirementsTagProviders = requirementsTagProviders;
+        this.releaseManager = releaseManager;
+    }
+
     private List<RequirementOutcome> buildRequirementOutcomes(List<Requirement> requirements) {
         List<RequirementOutcome> outcomes = Lists.newArrayList();
         for (Requirement requirement : requirements) {
@@ -67,7 +85,13 @@ public class RequirementsOutcomes {
         return outcomes;
     }
 
+    RequirementsOutcomesOfTypeCache requirementsOfTypeCache = new RequirementsOutcomesOfTypeCache(this);
+
     public RequirementsOutcomes requirementsOfType(String type) {
+        return requirementsOfTypeCache.byType(type);
+    }
+
+    public RequirementsOutcomes ofType(String type) {
         List<Requirement> matchingRequirements = Lists.newArrayList();
         List<TestOutcome> matchingTests = Lists.newArrayList();
         for (RequirementOutcome requirementOutcome : getFlattenedRequirementOutcomes()) {
@@ -82,7 +106,7 @@ public class RequirementsOutcomes {
                 issueTracking,
                 environmentVariables,
                 requirementsTagProviders,
-                reportNameProvider);
+                reportNameProvider).withoutUnrelatedRequirements();
     }
 
     private void buildRequirements(List<RequirementOutcome> outcomes, Requirement requirement) {
@@ -108,13 +132,26 @@ public class RequirementsOutcomes {
     }
 
     public int getFlattenedRequirementCount() {
+        if (totalIsCachedFor("FlattenedRequirementCount")) { return cachedTotalOf("FlattenedRequirementCount"); }
+
         int requirementCount = 0;
         for (RequirementOutcome requirement : requirementOutcomes) {
             requirementCount += requirement.getFlattenedRequirementCount();
 
         }
-        return requirementCount;
+        return cachedTotal("FlattenedRequirementCount", requirementCount);
     }
+
+    private int cachedTotal(String key, int total) {
+        totalCountCache.put(key, total);
+        return total;
+    }
+
+    private int cachedTotalOf(String key) {
+        return totalCountCache.get(key);
+    }
+
+    private boolean totalIsCachedFor(String key) { return totalCountCache.containsKey(key); }
 
     private List<Requirement> getFlattenedRequirements(Requirement rootRequirement) {
         List<Requirement> flattenedRequirements = Lists.newArrayList();
@@ -125,6 +162,22 @@ public class RequirementsOutcomes {
 
     public Optional<Requirement> getParentRequirement() {
         return parentRequirement;
+    }
+
+    public Optional<Requirement> getGrandparentRequirement() {
+        if (!parentRequirement.isPresent()) { return Optional.absent(); }
+        if (isEmpty(parentRequirement.get().getParent())) { return Optional.absent(); }
+
+        return parentRequirementOf(parentRequirement.get());
+    }
+
+    private Optional<Requirement> parentRequirementOf(Requirement requirement) {
+        for (RequirementsTagProvider tagProvider : this.requirementsTagProviders) {
+            if (tagProvider.getParentRequirementOf(requirement).isPresent()) {
+                return tagProvider.getParentRequirementOf(requirement);
+            }
+        }
+        return Optional.absent();
     }
 
     public int getRequirementCount() {
@@ -147,22 +200,9 @@ public class RequirementsOutcomes {
         return typeOfFirstChildPresent();
     }
 
-//    public Optional<String> typeOf() {
-//        boolean grandChildrenFound = false;
-//        for (RequirementOutcome outcome : requirementOutcomes) {
-//            if (!outcome.getRequirement().getChildren().isEmpty()) {
-//                for(Requirement child : outcome.getRequirement().getChildren()) {
-//                    if (!child.getChildren().isEmpty())
-//                        return typeOfFirstChildPresentIn(child.getChildren());
-//                }
-//            }
-//        }
-//        return grandChildrenFound;
-//    }
-
     public List<String> getTypes() {
         List<Requirement> requirements = getAllRequirements();
-        List<String> types = Lists.newArrayList();
+        List<String> types = new ArrayList<>();
         for (Requirement requirement : requirements) {
             if (!types.contains(requirement.getType())) {
                 types.add(requirement.getType());
@@ -194,13 +234,15 @@ public class RequirementsOutcomes {
     }
 
     public int getCompletedRequirementsCount() {
+        if (totalIsCachedFor("CompletedRequirementsCount")) { return cachedTotalOf("CompletedRequirementsCount"); }
+
         int completedRequirements = 0;
         for (RequirementOutcome requirementOutcome : requirementOutcomes) {
             if (requirementOutcome.isComplete()) {
                 completedRequirements++;
             }
         }
-        return completedRequirements;
+        return cachedTotal("CompletedRequirementsCount", completedRequirements);
     }
 
     public int getUnsuccessfulRequirementsCount() {
@@ -208,71 +250,79 @@ public class RequirementsOutcomes {
     }
 
     public int getErrorRequirementsCount() {
+        if (totalIsCachedFor("ErrorRequirementsCount")) { return cachedTotalOf("ErrorRequirementsCount"); }
+
         int failingRequirements = 0;
         for (RequirementOutcome requirementOutcome : requirementOutcomes) {
             if (requirementOutcome.isError()) {
                 failingRequirements++;
             }
         }
-        return failingRequirements;
+        return cachedTotal("ErrorRequirementsCount", failingRequirements);
     }
 
     public int getFailingRequirementsCount() {
+        if (totalIsCachedFor("FailingRequirementsCount")) { return cachedTotalOf("FailingRequirementsCount"); }
+
         int failingRequirements = 0;
         for (RequirementOutcome requirementOutcome : requirementOutcomes) {
             if (requirementOutcome.isFailure()) {
                 failingRequirements++;
             }
         }
-        return failingRequirements;
+        return cachedTotal("FailingRequirementsCount", failingRequirements);
     }
 
     public int getPendingRequirementsCount() {
+        if (totalIsCachedFor("PendingRequirementsCount")) { return cachedTotalOf("PendingRequirementsCount"); }
+
         int total = 0;
         for (RequirementOutcome requirementOutcome : requirementOutcomes) {
             if (requirementOutcome.isPending()) {
                 total++;
             }
         }
-        return total;
+        return cachedTotal("PendingRequirementsCount", total);
     }
 
     public int getCompromisedRequirementsCount() {
+        if (totalIsCachedFor("CompromisedRequirementsCount")) { return cachedTotalOf("CompromisedRequirementsCount"); }
+
         int total = 0;
         for (RequirementOutcome requirementOutcome : requirementOutcomes) {
             if (requirementOutcome.isCompromised()) {
                 total++;
             }
         }
-        return total;
+        return cachedTotal("CompromisedRequirementsCount", total);
     }
 
     public int getIgnoredRequirementsCount() {
+        if (totalIsCachedFor("IgnoredRequirementsCount")) { return cachedTotalOf("IgnoredRequirementsCount"); }
+
         int total = 0;
         for (RequirementOutcome requirementOutcome : requirementOutcomes) {
             if (requirementOutcome.isIgnored()) {
                 total++;
             }
         }
-        return total;
+        return cachedTotal("IgnoredRequirementsCount", total);
     }
 
     public int getRequirementsWithoutTestsCount() {
-        int requirementsWithNoTests = 0;
-//        List<RequirementOutcome> flattenedRequirementOutcomes = getFlattenedRequirementOutcomes();
+        if (totalIsCachedFor("RequirementsWithoutTestsCount")) { return cachedTotalOf("RequirementsWithoutTestsCount"); }
 
-//        for (Requirement requirement : getAllRequirements()) {
-//            if (!testsRecordedFor(flattenedRequirementOutcomes, requirement)) {
+        int requirementsWithNoTests = 0;
         for (Requirement requirement : getTopLevelRequirements()) {
             if (!testsRecordedFor(requirement) && !isPending(requirement)) {
                 requirementsWithNoTests++;
             }
         }
-        return requirementsWithNoTests;
+        return cachedTotal("IgnoredRequirementsCount", requirementsWithNoTests);
     }
 
     private boolean isPending(Requirement requirement) {
-        for(RequirementOutcome requirementOutcome : requirementOutcomes) {
+        for (RequirementOutcome requirementOutcome : requirementOutcomes) {
             if (requirementOutcome.getRequirement().equals(requirement) && requirementOutcome.isPending()) {
                 return true;
             }
@@ -316,8 +366,6 @@ public class RequirementsOutcomes {
         }
     }
 
-    List<RequirementOutcome> flattenedRequirementOutcomes = null;
-
     public List<RequirementOutcome> getFlattenedRequirementOutcomes() {
         if (flattenedRequirementOutcomes == null) {
             flattenedRequirementOutcomes = getFlattenedRequirementOutcomes(requirementOutcomes);
@@ -332,18 +380,14 @@ public class RequirementsOutcomes {
             flattenedOutcomes.add(requirementOutcome);
             for (Requirement requirement : requirementOutcome.getRequirement().getChildren()) {
 
-//                TestTag requirementTag = TestTag.withName(requirement.getName()).andType(requirement.getType());
-//                TestOutcomes testOutcomesForRequirement = requirementOutcome.getTestOutcomes().withTag(requirementTag);
-
                 TestOutcomes testOutcomesForRequirement = requirementOutcome.getTestOutcomes().forRequirement(requirement);
-
 
                 flattenedOutcomes.add(new RequirementOutcome(requirement, testOutcomesForRequirement, issueTracking));
 
                 List<Requirement> childRequirements = requirement.getChildren();
                 RequirementsOutcomes childOutcomes =
                         new RequirementsOutcomes(childRequirements, testOutcomesForRequirement, issueTracking,
-                                environmentVariables, requirementsTagProviders, reportNameProvider);
+                                environmentVariables, requirementsTagProviders, reportNameProvider).withoutUnrelatedRequirements();
                 flattenedOutcomes.addAll(getFlattenedRequirementOutcomes(childOutcomes.getRequirementOutcomes()));
             }
         }
@@ -432,7 +476,7 @@ public class RequirementsOutcomes {
                 issueTracking,
                 environmentVariables,
                 requirementsTagProviders,
-                reportNameProvider);
+                reportNameProvider).withoutUnrelatedRequirements();
     }
 
     private List<Requirement> removeRequirementsWithoutTestsFrom(List<Requirement> requirements) {
@@ -454,5 +498,37 @@ public class RequirementsOutcomes {
                                                  String releaseName) {
         releaseManager.enrichOutcomesWithReleaseTags(outcomes);
         return (List<TestOutcome>) filter(having(on(TestOutcome.class).getVersions(), hasItem(releaseName)), outcomes);
+    }
+
+    public RequirementsOutcomes withoutUnrelatedRequirements() {
+        if (isEmpty(ThucydidesSystemProperty.THUCYDIDES_EXCLUDE_UNRELATED_REQUIREMENTS_OF_TYPE.from(environmentVariables))) {
+            return this;
+        }
+        return new RequirementsOutcomes(
+                reportNameProvider,
+                pruned(requirementOutcomes),
+                testOutcomes,
+                parentRequirement,
+                environmentVariables,
+                issueTracking,
+                requirementsTagProviders,
+                releaseManager);
+    }
+
+    private List<RequirementOutcome> pruned(List<RequirementOutcome> requirementOutcomes) {
+        List<RequirementOutcome> prunedRequirementsOutcomes = new ArrayList<>();
+
+        for (RequirementOutcome requirementOutcome : requirementOutcomes) {
+            if (!shouldPrune(requirementOutcome)) {
+                prunedRequirementsOutcomes.add(requirementOutcome.withoutUnrelatedRequirements());
+            }
+        }
+        return prunedRequirementsOutcomes;
+    }
+
+    public boolean shouldPrune(RequirementOutcome requirementOutcome) {
+        return ((requirementOutcome.getTestCount() == 0)
+                 && ExcludedUnrelatedRequirementTypes.definedIn(environmentVariables)
+                .excludeUntestedRequirementOfType(requirementOutcome.getRequirement().getType()));
     }
 }

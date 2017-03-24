@@ -1,5 +1,7 @@
 package net.thucydides.core.steps;
 
+import ch.lambdaj.function.convert.Converter;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -15,6 +17,7 @@ import net.serenitybdd.core.time.SystemClock;
 import net.thucydides.core.ThucydidesSystemProperty;
 import net.thucydides.core.annotations.TestAnnotations;
 import net.thucydides.core.guice.Injectors;
+import net.thucydides.core.junit.SerenityJUnitTestCase;
 import net.thucydides.core.model.*;
 import net.thucydides.core.model.failures.FailureAnalysis;
 import net.thucydides.core.model.screenshots.ScreenshotPermission;
@@ -33,6 +36,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.*;
 
+import static ch.lambdaj.Lambda.convert;
 import static net.serenitybdd.core.webdriver.configuration.RestartBrowserForEach.*;
 import static net.thucydides.core.model.Stories.findStoryFrom;
 import static net.thucydides.core.model.TestResult.*;
@@ -86,8 +90,6 @@ public class BaseStepListener implements StepListener, StepPublisher {
 
     private Configuration configuration;
 
-    private boolean inFluentStepSequence;
-
     private List<String> storywideIssues;
 
     private List<TestTag> storywideTags;
@@ -139,6 +141,10 @@ public class BaseStepListener implements StepListener, StepPublisher {
         return getCurrentTestOutcome().getStepCount();
     }
 
+    public int getRunningStepCount() {
+        return getCurrentTestOutcome().getRunningStepCount();
+    }
+
     public void updateOverallResults() {
         getCurrentTestOutcome().updateOverallResults();
     }
@@ -148,6 +154,39 @@ public class BaseStepListener implements StepListener, StepPublisher {
             photographer = new Photographer(getDarkroom());
         }
         return photographer;
+    }
+
+    public void cancelPreviousTest() {
+        synchronized (testOutcomes) {
+            if (!testOutcomes.isEmpty()) {
+                testOutcomes.remove(testOutcomes.size() - 1);
+            }
+        }
+    }
+
+    public void lastTestPassedAfterRetries(int remainingTries, List<String> failureMessages,TestFailureCause testfailureCause) {
+        if (latestTestOutcome().isPresent()) {
+            latestTestOutcome().get().recordStep(
+                    TestStep.forStepCalled("UNSTABLE TEST:\n" + failureHistoryFor(failureMessages))
+                            .withResult(TestResult.IGNORED));
+
+            latestTestOutcome().get().addTag(TestTag.withName("Retries: " + (remainingTries - 1)). andType("unstable test"));
+            latestTestOutcome().get().setFlakyTestFailureCause(testfailureCause);
+        }
+    }
+
+    private String failureHistoryFor(List<String> failureMessages) {
+        List<String> bulletPoints = convert(failureMessages, new Converter<String, String>() {
+            @Override
+            public String convert(String from) {
+                return "* " + from;
+            }
+        });
+        return Joiner.on("\n").join(bulletPoints);
+    }
+
+    public void currentStepIsAPrecondition() {
+        getCurrentStep().setPrecondition(true);
     }
 
     public class StepMerger {
@@ -179,7 +218,6 @@ public class BaseStepListener implements StepListener, StepPublisher {
         this.currentStepStack = new Stack<>();
         this.currentGroupStack = new Stack<>();
         this.outputDirectory = outputDirectory;
-        this.inFluentStepSequence = false;
         this.storywideIssues = Lists.newArrayList();
         this.storywideTags = Lists.newArrayList();
         //this.webdriverManager = injector.getInstance(WebdriverManager.class);
@@ -319,7 +357,7 @@ public class BaseStepListener implements StepListener, StepPublisher {
         closeDarkroom();
         clearStorywideTagsAndIssues();
 
-        closeBrowsers.closeIfConfiguredForANew(STORY);
+        closeBrowsers.forTestSuite(testSuite).closeIfConfiguredForANew(STORY);
 
         suiteStarted = false;
     }
@@ -332,6 +370,15 @@ public class BaseStepListener implements StepListener, StepPublisher {
      */
     public void testStarted(final String testMethod) {
         TestOutcome newTestOutcome = TestOutcome.forTestInStory(testMethod, testSuite, testedStory);
+        recordNewTestOutcome(testMethod, newTestOutcome);
+    }
+
+    public void testStarted(final String testMethod, final String id) {
+        TestOutcome newTestOutcome = TestOutcome.forTestInStory(testMethod, testSuite, testedStory).withId(id);
+        recordNewTestOutcome(testMethod, newTestOutcome);
+    }
+
+    private void recordNewTestOutcome(String testMethod, TestOutcome newTestOutcome) {
         newTestOutcome.setTestSource(StepEventBus.getEventBus().getTestSource());
         testOutcomes.add(newTestOutcome);
         setAnnotatedResult(testMethod);
@@ -344,14 +391,28 @@ public class BaseStepListener implements StepListener, StepPublisher {
         }
     }
 
-    public void updateCurrentStepTitle(String updatedStepTitle) {
+    public StepMutator updateCurrentStepTitle(String updatedStepTitle) {
         if (currentStepExists()) {
             getCurrentStep().setDescription(updatedStepTitle);
         } else {
             stepStarted(ExecutedStepDescription.withTitle(updatedStepTitle));
         }
+        return new StepMutator(this);
     }
 
+    public class StepMutator {
+
+        private final BaseStepListener baseStepListener;
+
+        public StepMutator(BaseStepListener baseStepListener) {
+            this.baseStepListener = baseStepListener;
+        }
+
+        public void asAPrecondition() {
+            baseStepListener.getCurrentStep().setPrecondition(true);
+        }
+
+    }
     private void setAnnotatedResult(String testMethod) {
         if (TestAnnotations.forClass(testSuite).isIgnored(testMethod)) {
             getCurrentTestOutcome().setAnnotatedResult(IGNORED);
@@ -372,12 +433,24 @@ public class BaseStepListener implements StepListener, StepPublisher {
         // TODO: Disable when run from an IDE
         getCurrentTestOutcome().addTags(storywideTags);
 
+        if (StepEventBus.getEventBus().isDryRun() || getCurrentTestOutcome().getResult() == IGNORED) {
+            testAndTopLevelStepsShouldBeIgnored();
+        }
+
         if (currentTestIsABrowserTest()) {
             getCurrentTestOutcome().setDriver(getDriverUsedInThisTest());
             updateSessionIdIfKnown();
-            closeBrowsers.closeIfConfiguredForANew(SCENARIO);
+            closeBrowsers.forTestSuite(testSuite).closeIfConfiguredForANew(SCENARIO);
         }
         currentStepStack.clear();
+    }
+
+    private void testAndTopLevelStepsShouldBeIgnored() {
+        getCurrentTestOutcome().setResult(IGNORED);
+        if (getCurrentTestOutcome().isDataDriven()) {
+            getCurrentTestOutcome().updateTopLevelStepResultsTo(IGNORED);
+        }
+
     }
 
 
@@ -386,7 +459,8 @@ public class BaseStepListener implements StepListener, StepPublisher {
     }
 
     private boolean currentTestIsABrowserTest() {
-        return ThucydidesWebDriverSupport.isDriverInstantiated();
+        return SerenityJUnitTestCase.inClass(testSuite).isAWebTest()
+                || (testSuite == null && ThucydidesWebDriverSupport.isDriverInstantiated());
     }
 
     public void testRetried() {
@@ -553,6 +627,7 @@ public class BaseStepListener implements StepListener, StepPublisher {
     public void lastStepFailed(StepFailure failure) {
         takeEndOfStepScreenshotFor(FAILURE);
         getCurrentTestOutcome().lastStepFailedWith(failure);
+        lastFailingExample = currentExample;
     }
 
 
@@ -563,6 +638,7 @@ public class BaseStepListener implements StepListener, StepPublisher {
         if (shouldTagErrors()) {
             addTagFor(getCurrentTestOutcome());
         }
+        lastFailingExample = currentExample;
     }
 
     private void addTagFor(TestOutcome testOutcome) {
@@ -608,7 +684,7 @@ public class BaseStepListener implements StepListener, StepPublisher {
         if (!currentStepMethodStack.isEmpty()) {
             currentStepMethodStack.pop();
         }
-        if ((!inFluentStepSequence) && currentStepExists()) {
+        if (currentStepExists()) {
             TestStep finishedStep = currentStepStack.pop();
             finishedStep.recordDuration();
             if (result != null) {
@@ -797,6 +873,13 @@ public class BaseStepListener implements StepListener, StepPublisher {
                         || getCurrentTestOutcome().getResult() == TestResult.COMPROMISED));
     }
 
+    public boolean aStepHasFailedInTheCurrentExample() {
+        if (currentExample == 0) {
+            return aStepHasFailed();
+        }
+        return (aStepHasFailed() && (currentExample == lastFailingExample));
+    }
+
     public FailureCause getTestFailureCause() {
         return getCurrentTestOutcome().getTestFailureCause();
     }
@@ -863,6 +946,7 @@ public class BaseStepListener implements StepListener, StepPublisher {
     }
 
     int currentExample = 0;
+    int lastFailingExample = 0;
 
     /**
      * The current scenario is a data-driven scenario using test data from the specified table.
@@ -870,6 +954,7 @@ public class BaseStepListener implements StepListener, StepPublisher {
     public void useExamplesFrom(DataTable table) {
         getCurrentTestOutcome().useExamplesFrom(table);
         currentExample = 0;
+        lastFailingExample = 0;
     }
 
     public void addNewExamplesFrom(DataTable table) {
@@ -902,7 +987,7 @@ public class BaseStepListener implements StepListener, StepPublisher {
         if (latestTestOutcome().isPresent()) {
             latestTestOutcome().get().moveToNextRow();
         }
-        closeBrowsers.closeIfConfiguredForANew(EXAMPLE);
+        closeBrowsers.forTestSuite(testSuite).closeIfConfiguredForANew(EXAMPLE);
     }
 
     private boolean newStepForEachExample() {

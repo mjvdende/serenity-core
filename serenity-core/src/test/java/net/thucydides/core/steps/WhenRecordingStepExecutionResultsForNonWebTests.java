@@ -8,8 +8,11 @@ import net.thucydides.core.steps.samples.FlatScenarioStepsWithoutPages;
 import net.thucydides.core.util.ExtendedTemporaryFolder;
 import net.thucydides.core.util.MockEnvironmentVariables;
 import net.thucydides.core.webdriver.Configuration;
-import net.thucydides.core.webdriver.SystemPropertiesConfiguration;
-import org.junit.*;
+import net.thucydides.core.configuration.SystemPropertiesConfiguration;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -213,7 +216,6 @@ public class WhenRecordingStepExecutionResultsForNonWebTests {
     }
 
     @Test
-
     public void if_all_child_steps_are_ignored_the_overall_step_should_be_ignored() {
 
         StepEventBus.getEventBus().testSuiteStarted(MyTestCase.class);

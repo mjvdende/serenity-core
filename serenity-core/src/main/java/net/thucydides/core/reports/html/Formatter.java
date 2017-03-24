@@ -31,6 +31,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static ch.lambdaj.Lambda.join;
+import static net.thucydides.core.reports.html.MarkdownRendering.RenderedElements.*;
 import static org.apache.commons.lang3.StringUtils.abbreviate;
 
 /**
@@ -47,6 +48,7 @@ public class Formatter {
     private static final String ELIPSE = "&hellip;";
     private static final String ASCIIDOC = "asciidoc";
     private static final String MARKDOWN = "markdown";
+    private static final String TEXT = "";
     private static final String NEW_LINE = "\n";
 
     private final static String NEWLINE_CHAR = "\u2424";
@@ -77,17 +79,19 @@ public class Formatter {
     }
 
     public String renderMarkdown(String text) {
-        if (!ThucydidesSystemProperty.ENABLE_MARKDOWN.booleanFrom(environmentVariables,true)) {
-            return text;
-        }
         if (text == null) { return ""; }
-
         return stripSurroundingParagraphTagsFrom(Processor.process(text));
     }
 
     private String stripSurroundingParagraphTagsFrom(String text) {
-        return text.toLowerCase().startsWith("<p>") ?
-                text.substring(3, text.length() - 5) : text;
+        if (text.toLowerCase().trim().startsWith("<p>")) {
+            text = text.trim().substring(3);
+        }
+
+        if (text.toLowerCase().trim().endsWith("</p>")) {
+            text = text.trim().substring(0, text.length() - 4);
+        }
+        return text;
     }
 
     private String stripNewLines(String render) {
@@ -184,13 +188,13 @@ public class Formatter {
 
 
     public String renderDescription(final String text) {
-        String format = environmentVariables.getProperty(ThucydidesSystemProperty.NARRATIVE_FORMAT,"");
+        String format = environmentVariables.getProperty(ThucydidesSystemProperty.NARRATIVE_FORMAT, TEXT);
 
         if (isRenderedHtml(text)) {
             return text;
         } else if (format.equalsIgnoreCase(ASCIIDOC)) {  // Use ASCIIDOC if configured
             return renderAsciidoc(text);
-        } else if (format.equalsIgnoreCase(MARKDOWN) ||ThucydidesSystemProperty.ENABLE_MARKDOWN.booleanFrom(environmentVariables, true) ) {
+        } else if (format.equalsIgnoreCase(MARKDOWN) ||  (MarkdownRendering.configuredIn(environmentVariables).renderMarkdownFor(narrative)) ) {
             return renderMarkdown(text);
         } else {
             return addLineBreaks(text);
@@ -308,9 +312,26 @@ public class Formatter {
     );
 
     public String htmlCompatible(Object fieldValue) {
-        return renderMarkdown(
-                addLineBreaks(ESCAPE_SPECIAL_CHARS.translate(fieldValue != null ? stringFormOf(fieldValue) : ""))
-        ).trim();
+        return plainHtmlCompatible(fieldValue);
+    }
+
+    public String htmlCompatibleListEntry(Object fieldValue) {
+        return (MarkdownRendering.configuredIn(environmentVariables).renderMarkdownFor(list)) ?
+                renderMarkdown(htmlCompatible(fieldValue)) : htmlCompatible(fieldValue);
+    }
+
+    public String htmlCompatibleStoryTitle(Object fieldValue) {
+        return (MarkdownRendering.configuredIn(environmentVariables).renderMarkdownFor(story)) ?
+                renderMarkdown(htmlCompatible(fieldValue)) : htmlCompatible(fieldValue);
+    }
+
+    public String htmlCompatibleTestTitle(Object fieldValue) {
+        return (MarkdownRendering.configuredIn(environmentVariables).renderMarkdownFor(scenario)) ?
+                renderMarkdown(htmlCompatible(fieldValue)) : htmlCompatible(fieldValue);
+    }
+
+    public String plainHtmlCompatible(Object fieldValue) {
+        return addLineBreaks(ESCAPE_SPECIAL_CHARS.translate(fieldValue != null ? stringFormOf(fieldValue) : "")).trim();
     }
 
     public String htmlAttributeCompatible(Object fieldValue) {
@@ -435,9 +456,12 @@ public class Formatter {
 
     public String formatWithFields(String textToFormat) {
         String textWithEscapedFields = textToFormat.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-        return renderMarkdown(
-                addLineBreaks(removeMacros(convertAnyTables(textWithEscapedFields)))
-               );
+
+        String renderedText = addLineBreaks(removeMacros(convertAnyTables(textWithEscapedFields)));
+        if (MarkdownRendering.configuredIn(environmentVariables).renderMarkdownFor(step)) {
+            renderedText = renderMarkdown(renderedText);
+        }
+        return renderedText;
 
     }
 

@@ -4,6 +4,7 @@ dependencies {
         exclude group: "commons-io", module: "commons-io"
         exclude group: "org.freemarker"
         exclude group: "junit", module:"junit"
+        exclude group: "commons-io", module:"commons-io"
     }
     projectDescription = 'Serenity sample resources used for testing purposes'
 }

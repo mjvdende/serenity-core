@@ -15,22 +15,13 @@ import java.io.InputStream;
 
 import static net.serenitybdd.rest.HeaderNames.*;
 
-/**
- * User: YamStranger
- * Date: 3/16/16
- * Time: 2:08 PM
- */
+
 abstract class RequestSpecificationBodyConfigurations extends RequestSpecificationHeaderConfigurations
         implements FilterableRequestSpecification {
     private static final Logger log = LoggerFactory.getLogger(RequestSpecificationBodyConfigurations.class);
 
     public RequestSpecificationBodyConfigurations(RequestSpecificationImpl core) {
         super(core);
-    }
-
-    @Override
-    public <T> T getBody() {
-        return core.getBody();
     }
 
     @Override
@@ -41,64 +32,76 @@ abstract class RequestSpecificationBodyConfigurations extends RequestSpecificati
 
     @Override
     public RequestSpecification body(Object object, ObjectMapper mapper) {
-        core.body(object, mapper);
+        if (object instanceof byte[]) {
+            core.body((byte[]) object);
+        } else {
+            core.body(object, mapper);
+        }
         return this;
     }
 
     @Override
     public RequestSpecification body(Object object, ObjectMapperType mapperType) {
+        if (object instanceof byte[]) {
+            return body((byte[]) object);
+        }
+
         core.body(object, mapperType);
         return this;
     }
 
     @Override
-    public String getRequestContentType() {
-        return core.getRequestContentType();
-    }
-
-    @Override
     public RequestSpecification body(String body) {
-        return body((Object) body);
+        core.body(body);
+        return this;
     }
 
     @Override
     public RequestSpecification body(byte[] body) {
-        return body((Object) body);
+        core.body(body);
+        return this;
     }
 
     @Override
     public RequestSpecification body(File body) {
-        return body((Object) body);
+        core.body(body);
+        return this;
     }
 
     @Override
     public RequestSpecification body(InputStream body) {
-        return body((Object) body);
+        core.body(body);
+        return this;
     }
 
     @Override
     public RequestSpecification content(String content) {
-        return content((Object) content);
+        core.content(content);
+        return this;
     }
 
     @Override
     public RequestSpecification content(byte[] content) {
-        return content((Object) content);
+        core.content(content);
+        return this;
     }
 
     @Override
     public RequestSpecification content(File content) {
-        return content((Object) content);
+        core.content(content);
+        return this;
     }
 
     @Override
     public RequestSpecification content(InputStream content) {
-        return content((Object) content);
+        core.content(content);
+        return this;
     }
 
     @Override
     public RequestSpecification content(Object object) {
-        return body(object);
+        core.content(object);
+        return this;
     }
 
     @Override

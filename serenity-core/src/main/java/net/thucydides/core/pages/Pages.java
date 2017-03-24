@@ -1,10 +1,10 @@
 package net.thucydides.core.pages;
 
 import com.google.common.base.Optional;
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
 import net.serenitybdd.core.pages.PageObject;
 import net.serenitybdd.core.pages.PageObjects;
 import net.thucydides.core.annotations.Fields;
-import net.thucydides.core.guice.Injectors;
 import net.thucydides.core.webdriver.Configuration;
 import net.thucydides.core.webdriver.WebDriverFacade;
 import net.thucydides.core.webdriver.WebdriverProxyFactory;
@@ -50,11 +50,11 @@ public class Pages implements Serializable {
     }
 
     public Pages() {
-        this(Injectors.getInjector().getInstance(Configuration.class));
+        this(ConfiguredEnvironment.getConfiguration());
     }
 
     public Pages(final WebDriver driver) {
-        this(Injectors.getInjector().getInstance(Configuration.class));
+        this(ConfiguredEnvironment.getConfiguration());
         this.driver = driver;
     }
 
@@ -209,16 +209,16 @@ public class Pages implements Serializable {
             }
 
         } catch (NoSuchMethodException e) {
-            LOGGER.debug("This page object does not appear have a constructor that takes a WebDriver parameter: {} ({})",
+            LOGGER.warn("This page object does not appear have a constructor that takes a WebDriver parameter: {} ({})",
                     pageObjectClass, e.getMessage());
             thisPageObjectLooksDodgy(pageObjectClass, "This page object does not appear have a constructor that takes a WebDriver parameter");
         } catch (InvocationTargetException e) {
         	// Unwrap the underlying exception
-            LOGGER.debug("Failed to instantiate page of type {} ({})", pageObjectClass, e.getTargetException());
+            LOGGER.warn("Failed to instantiate page of type {} ({})", pageObjectClass, e.getTargetException());
             thisPageObjectLooksDodgy(pageObjectClass,"Failed to instantiate page (" + e.getTargetException() +")");
         }catch (Exception e) {
         	//shouldn't even get here
-            LOGGER.debug("Failed to instantiate page of type {} ({})", pageObjectClass, e);
+            LOGGER.warn("Failed to instantiate page of type {} ({})", pageObjectClass, e);
             thisPageObjectLooksDodgy(pageObjectClass,"Failed to instantiate page (" + e +")");
         }
         return currentPage;

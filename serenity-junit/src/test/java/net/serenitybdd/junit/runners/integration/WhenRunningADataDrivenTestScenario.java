@@ -16,7 +16,7 @@ import net.thucydides.core.model.TestStep;
 import net.thucydides.core.pages.Pages;
 import net.thucydides.core.util.MockEnvironmentVariables;
 import net.thucydides.core.webdriver.Configuration;
-import net.thucydides.core.webdriver.SystemPropertiesConfiguration;
+import net.thucydides.core.configuration.SystemPropertiesConfiguration;
 import net.thucydides.core.webdriver.WebDriverFactory;
 import net.thucydides.junit.annotations.Concurrent;
 import net.thucydides.junit.annotations.TestData;
@@ -112,7 +112,7 @@ public class WhenRunningADataDrivenTestScenario {
         runner.run(new RunNotifier());
 
         List<TestOutcome> aggregatedScenarios = ParameterizedTestsOutcomeAggregator.from(runner).aggregateTestOutcomesByTestMethods();
-        assertThat(aggregatedScenarios.get(0).getDataDrivenSampleScenario(), containsString("Step with parameters\n" +
+        assertThat(aggregatedScenarios.get(0).getDataDrivenSampleScenario(), containsString("Step with parameters: <Parameter 1>, <Parameter 2>\n" +
                 "Step that succeeds\n" +
                 "Another step that succeeds"));
     }

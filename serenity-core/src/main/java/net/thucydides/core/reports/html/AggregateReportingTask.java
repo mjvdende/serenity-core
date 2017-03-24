@@ -1,7 +1,6 @@
 package net.thucydides.core.reports.html;
 
 import net.serenitybdd.core.time.Stopwatch;
-import net.thucydides.core.guice.Injectors;
 import net.thucydides.core.model.ReportType;
 import net.thucydides.core.reports.TestOutcomes;
 import net.thucydides.core.requirements.RequirementsService;
@@ -18,26 +17,21 @@ public class AggregateReportingTask extends BaseReportingTask implements Reporti
     private static final String HOME_PAGE_TEMPLATE_PATH = "freemarker/home.ftl";
     private static final String BUILD_INFO_TEMPLATE_PATH = "freemarker/build-info.ftl";
 
-    private RequirementsService requirementsService;
+    private final RequirementsService requirementsService;
+    private final TestOutcomes testOutcomes;
 
-    public AggregateReportingTask(FreemarkerContext freemarker,
-                                  EnvironmentVariables environmentVariables,
-                                  File outputDirectory) {
-        this(freemarker,
-                environmentVariables,
-                Injectors.getInjector().getInstance(RequirementsService.class),
-                outputDirectory);
-    }
 
     public AggregateReportingTask(FreemarkerContext context,
                                   EnvironmentVariables environmentVariables,
                                   RequirementsService requirementsService,
-                                  File outputDirectory) {
+                                  File outputDirectory,
+                                  TestOutcomes testOutcomes) {
         super(context, environmentVariables, outputDirectory);
         this.requirementsService = requirementsService;
+        this.testOutcomes = testOutcomes;
     }
 
-    public void generateReportsFor(TestOutcomes testOutcomes) throws IOException {
+    public void generateReports() throws IOException {
 
         Stopwatch stopwatch = Stopwatch.started();
 

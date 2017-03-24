@@ -4,7 +4,7 @@ import com.google.inject.Inject;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValue;
 import net.thucydides.core.ThucydidesSystemProperty;
-import net.thucydides.core.webdriver.SystemPropertiesConfiguration;
+import net.thucydides.core.configuration.SystemPropertiesConfiguration;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +64,7 @@ public class PropertiesFileLocalPreferences implements LocalPreferences {
                 preferencesIn(preferencesFileInHomeDirectory()),
                 preferencesIn(legacyPreferencesFileInHomeDirectory()),
                 preferencesIn(preferencesFileInMavenModuleDirectory()),
+                preferencesIn(preferencesFileInMavenParentModuleDirectory()),
                 preferencesIn(preferencesFileInWorkingDirectory()),
                 preferencesIn(legacyPreferencesFileInWorkingDirectory()),
                 preferencesIn(preferencesFileWithAbsolutePath()),
@@ -148,6 +149,10 @@ public class PropertiesFileLocalPreferences implements LocalPreferences {
         return new File(mavenModuleDirectory, defaultPropertiesFileName());
     }
 
+    private File preferencesFileInMavenParentModuleDirectory() {
+        File parentModuleDirectory = mavenModuleDirectory.getParentFile();
+        return new File(parentModuleDirectory, defaultPropertiesFileName());
+    }
 
     private File legacyPreferencesFileInWorkingDirectory() {
         return new File(workingDirectory, legacyPropertiesFileName());

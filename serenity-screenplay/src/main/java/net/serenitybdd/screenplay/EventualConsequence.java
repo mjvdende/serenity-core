@@ -1,8 +1,7 @@
 package net.serenitybdd.screenplay;
 
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
 import net.serenitybdd.core.time.Stopwatch;
-import net.thucydides.core.guice.Injectors;
-import net.thucydides.core.webdriver.Configuration;
 
 public class EventualConsequence<T> implements Consequence<T> {
     public static final int A_SHORT_PERIOD_BETWEEN_TRIES = 100;
@@ -19,7 +18,7 @@ public class EventualConsequence<T> implements Consequence<T> {
 
     public EventualConsequence(Consequence<T> consequenceThatMightTakeSomeTime) {
         this(consequenceThatMightTakeSomeTime,
-             Injectors.getInjector().getInstance(Configuration.class).getElementTimeout() * 1000);
+             ConfiguredEnvironment.getConfiguration().getElementTimeout() * 1000);
     }
 
     public static <T> EventualConsequence<T> eventually(Consequence<T> consequenceThatMightTakeSomeTime) {

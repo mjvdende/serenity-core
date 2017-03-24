@@ -437,6 +437,13 @@ public class WebElementFacadeImpl implements WebElementFacade, net.thucydides.co
         return ((element != null) && (element.getText().contains(value)));
     }
 
+    @Override
+    public boolean containsValue(String value) {
+        WebElement element = getElement();
+        return ((element != null) && (element.getAttribute("value").contains(value)));
+    }
+
+
     /**
      * Does this element exactly match  given text?
      */
@@ -714,7 +721,6 @@ public class WebElementFacadeImpl implements WebElementFacade, net.thucydides.co
 
     /**
      * Returns true if an element is present on the screen, whether visible or not.
-     * @return
      */
     public boolean isPresent() {
         if (driverIsDisabled()) {

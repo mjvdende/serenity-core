@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
 import net.thucydides.core.guice.Injectors;
 import net.thucydides.core.model.*;
 import net.thucydides.core.model.formatters.TestCoverageFormatter;
@@ -14,7 +15,6 @@ import net.thucydides.core.requirements.RequirementsService;
 import net.thucydides.core.requirements.RequirementsTree;
 import net.thucydides.core.requirements.model.Requirement;
 import net.thucydides.core.util.EnvironmentVariables;
-import net.thucydides.core.webdriver.Configuration;
 import org.apache.commons.lang3.StringUtils;
 import org.hamcrest.Matcher;
 import org.joda.time.DateTime;
@@ -154,14 +154,14 @@ public class TestOutcomes {
 
     public static TestOutcomes of(Collection<? extends TestOutcome> outcomes) {
         return new TestOutcomes(outcomes,
-                Injectors.getInjector().getInstance(Configuration.class).getEstimatedAverageStepCount());
+                ConfiguredEnvironment.getConfiguration().getEstimatedAverageStepCount());
     }
 
     private static List<TestOutcome> NO_OUTCOMES = ImmutableList.of();
 
     public static TestOutcomes withNoResults() {
         return new TestOutcomes(NO_OUTCOMES,
-                                Injectors.getInjector().getInstance(Configuration.class).getEstimatedAverageStepCount());
+                                ConfiguredEnvironment.getConfiguration().getEstimatedAverageStepCount());
     }
 
 
@@ -325,6 +325,11 @@ public class TestOutcomes {
             testOutcomesForThisRequirement.addAll(
                     withTag(childRequirement.asTag()).getOutcomes()
             );
+            if (childRequirement.getCardNumber() != null) {
+                testOutcomesForThisRequirement.addAll(
+                        withCardNumber(childRequirement.getCardNumber()).getOutcomes()
+                );
+            }
         }
 
         return TestOutcomes.of(testOutcomesForThisRequirement)
@@ -377,13 +382,13 @@ public class TestOutcomes {
         private final String tagType;
 
         private TagFinder(String tagType) {
-            this.tagType = tagType;
+            this.tagType = tagType.toLowerCase();
         }
 
         List<TestTag> in(TestOutcome testOutcome) {
             List<TestTag> matchingTags = Lists.newArrayList();
             for (TestTag tag : testOutcome.getTags()) {
-                if (tag.getType().compareToIgnoreCase(tagType) == 0) {
+                if (tag.normalisedType().equals(tagType)) {
                     matchingTags.add(tag);
                 }
             }
@@ -423,6 +428,13 @@ public class TestOutcomes {
                            .withRootOutcomes(getRootOutcomes());
     }
 
+    public TestOutcomes withCardNumber(String issueCardNumber) {
+        List<? extends TestOutcome> outcomesWithMatchingTag
+                = matchingOutcomes(outcomes, TestTag.withName(issueCardNumber).andType("issue"));
+        return TestOutcomes.of(outcomesWithMatchingTag)
+                .withTestTag(TestTag.withName(issueCardNumber).andType("issue"))
+                .withRootOutcomes(getRootOutcomes());
+    }
     private TestOutcomes withTestTag(TestTag tag) {
         return new TestOutcomes(this.outcomes, this.estimatedAverageStepCount, label, tag);
     }
@@ -448,6 +460,7 @@ public class TestOutcomes {
         }
         return matchingOutcomes;
     }
+
 
     private boolean isAnIssue(TestTag tag) {
         return tag.getType().equalsIgnoreCase("issue");
@@ -622,6 +635,10 @@ public class TestOutcomes {
 
     public OutcomeCounter getTotalTests() {
         return count(TestType.ANY);
+    }
+
+    public ScenarioOutcomeCounter getTotalScenarios() {
+        return new ScenarioOutcomeCounter(TestType.ANY, this);
     }
 
     public OutcomeCounter count(String testType) {

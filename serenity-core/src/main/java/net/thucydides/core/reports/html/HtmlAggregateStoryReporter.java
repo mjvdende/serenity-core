@@ -1,28 +1,37 @@
 package net.thucydides.core.reports.html;
 
-import com.beust.jcommander.internal.Lists;
+import ch.lambdaj.function.convert.Converter;
+import com.google.common.base.Splitter;
 import net.serenitybdd.core.SerenitySystemProperties;
 import net.serenitybdd.core.time.Stopwatch;
 import net.thucydides.core.ThucydidesSystemProperty;
 import net.thucydides.core.issues.IssueTracking;
 import net.thucydides.core.model.ReportType;
+import net.thucydides.core.model.TestTag;
 import net.thucydides.core.reports.*;
 import net.thucydides.core.requirements.DefaultRequirements;
-import net.thucydides.core.requirements.model.RequirementsConfiguration;
 import net.thucydides.core.requirements.Requirements;
+import net.thucydides.core.requirements.model.RequirementsConfiguration;
+import net.thucydides.core.requirements.reports.RequirementOutcome;
+import net.thucydides.core.requirements.reports.RequirementsOutcomes;
 import net.thucydides.core.util.EnvironmentVariables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.CopyOption;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.Set;
 
+import static ch.lambdaj.Lambda.convert;
 import static net.thucydides.core.guice.Injectors.getInjector;
+import static net.thucydides.core.reports.html.HtmlTestOutcomeReportingTask.testOutcomeReportsFor;
 import static net.thucydides.core.reports.html.ReportNameProvider.NO_CONTEXT;
+import static net.thucydides.core.reports.html.TagReportingTask.tagReportsFor;
 
 /**
  * Generates an aggregate acceptance test report in HTML form.
@@ -32,11 +41,10 @@ import static net.thucydides.core.reports.html.ReportNameProvider.NO_CONTEXT;
 public class HtmlAggregateStoryReporter extends HtmlReporter implements UserStoryTestReporter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HtmlAggregateStoryReporter.class);
-    public static final int REPORT_GENERATION_THREAD_POOL_SIZE = 16;
-    private static final int MAX_BATCHES = 128;
 
     private String projectName;
     private String relativeLink;
+    private String tags;
     private final IssueTracking issueTracking;
 
     private final RequirementsConfiguration requirementsConfiguration;
@@ -44,9 +52,11 @@ public class HtmlAggregateStoryReporter extends HtmlReporter implements UserStor
     private final Requirements requirements;
 
     private final EnvironmentVariables environmentVariables;
-    private final FormatConfiguration formatConfiguration;
+    private FormatConfiguration formatConfiguration;
+    private boolean generateTestOutcomeReports = false;
 
     private Stopwatch stopwatch = new Stopwatch();
+    public static final CopyOption[] COPY_OPTIONS = new CopyOption[]{StandardCopyOption.COPY_ATTRIBUTES};
 
     public HtmlAggregateStoryReporter(final String projectName) {
         this(projectName, "");
@@ -109,93 +119,94 @@ public class HtmlAggregateStoryReporter extends HtmlReporter implements UserStor
 
     public TestOutcomes generateReportsForTestResultsFrom(final File sourceDirectory) throws IOException {
 
+        Stopwatch stopwatch = Stopwatch.started();
         copyScreenshotsFrom(sourceDirectory);
+
+        LOGGER.debug("Copied screenshots after {} ms", stopwatch.lapTime());
 
         TestOutcomes allTestOutcomes = loadTestOutcomesFrom(sourceDirectory);
 
+        if (tags != null) {
+            allTestOutcomes = allTestOutcomes.withTags(getTags());
+        }
+        LOGGER.debug("Loaded test outcomes after {} ms", stopwatch.lapTime());
+
         generateReportsForTestResultsIn(allTestOutcomes);
+
+        LOGGER.debug("Generated reports after {} ms", stopwatch.lapTime());
 
         return allTestOutcomes;
     }
 
     private void copyScreenshotsFrom(File sourceDirectory) {
-        if ((getOutputDirectory() == null) || (getOutputDirectory().equals(sourceDirectory))) {
-            return;
-        }
-
-        CopyOption[] options = new CopyOption[]{StandardCopyOption.COPY_ATTRIBUTES};
-
-        Path targetPath = Paths.get(getOutputDirectory().toURI());
-        Path sourcePath = Paths.get(sourceDirectory.toURI());
-        try (DirectoryStream<Path> directoryContents = Files.newDirectoryStream(sourcePath)) {
-            for (Path sourceFile : directoryContents) {
-                Path destinationFile = targetPath.resolve(sourceFile.getFileName());
-                if (Files.notExists(destinationFile)) {
-                    Files.copy(sourceFile, destinationFile, options);
-                }
-            }
-        } catch (IOException e) {
-            LOGGER.error("Error during copying files to the target directory", e);
-        }
+        CopyFiles.from(sourceDirectory).to(getOutputDirectory());
     }
 
     public void generateReportsForTestResultsIn(TestOutcomes testOutcomes) throws IOException {
 
-        copyResourcesToOutputDirectory();
+        Stopwatch stopwatch = Stopwatch.started();
+        LOGGER.info("Generating test results for {} tests",testOutcomes.getTestCount());
 
         FreemarkerContext context = new FreemarkerContext(environmentVariables, requirements.getRequirementsService(), issueTracking, relativeLink);
 
-        List<ReportingTask> reportingTasks = Lists.newArrayList();
+        RequirementsOutcomes requirementsOutcomes = requirements.getRequirementsOutcomeFactory().buildRequirementsOutcomesFrom(testOutcomes);
 
-        reportingTasks.add(new AggregateReportingTask(context, environmentVariables, requirements.getRequirementsService(), getOutputDirectory()));
-        reportingTasks.add(new TagReportingTask(context, environmentVariables, getOutputDirectory(), reportNameProvider));
-        reportingTasks.add(new TagTypeReportingTask(context, environmentVariables, getOutputDirectory(), reportNameProvider));
-        reportingTasks.add(new ResultReportingTask(context, environmentVariables, getOutputDirectory(), reportNameProvider));
-        reportingTasks.add(new RequirementsReportingTask(context, environmentVariables, getOutputDirectory(),
+        LOGGER.info("{} requirements loaded after {} ms",requirementsOutcomes.getFlattenedRequirementCount(), stopwatch.lapTime());
+
+        requirementsOutcomes = requirementsOutcomes.withoutUnrelatedRequirements();
+
+        LOGGER.info("{} related requirements found after {} ms",requirementsOutcomes.getFlattenedRequirementCount(), stopwatch.lapTime());
+
+
+        List<String> knownRequirementReportNames = requirementReportNamesFrom(requirementsOutcomes, reportNameProvider);
+
+        Set<ReportingTask> reportingTasks = new HashSet<>();
+
+        LOGGER.info("Generating test outcome reports: " + generateTestOutcomeReports);
+        if (generateTestOutcomeReports) {
+            reportingTasks.addAll(testOutcomeReportsFor(testOutcomes).using(environmentVariables, requirements.getRequirementsService(), getOutputDirectory(), issueTracking));
+        }
+
+        reportingTasks.add(new TextSummaryReportTask(context, environmentVariables, getOutputDirectory(), testOutcomes));
+        reportingTasks.add(new CopyResourcesTask());
+        reportingTasks.add(new CopyTestResultsTask());
+        reportingTasks.add(new AggregateReportingTask(context, environmentVariables, requirements.getRequirementsService(), getOutputDirectory(), testOutcomes));
+        reportingTasks.add(new TagTypeReportingTask(context, environmentVariables, getOutputDirectory(), reportNameProvider, testOutcomes));
+        reportingTasks.addAll(tagReportsFor(testOutcomes).using(context,
+                                                                environmentVariables,
+                                                                getOutputDirectory(),
+                                                                reportNameProvider,
+                                                                testOutcomes.getTags(),
+                                                                knownRequirementReportNames));
+
+
+        reportingTasks.addAll(ResultReports.resultReportsFor(testOutcomes,context, environmentVariables, getOutputDirectory(),reportNameProvider));
+        reportingTasks.addAll(RequirementsReports.requirementsReportsFor(
+                context, environmentVariables, getOutputDirectory(),
                 reportNameProvider,
                 requirements.getRequirementsOutcomeFactory(),
                 requirements.getRequirementsService(),
-                relativeLink));
-        addAssociatedTagReporters(testOutcomes, context, reportingTasks);
+                relativeLink,
+                testOutcomes,
+                requirementsOutcomes
+        ));
 
-        generateReportsFor(testOutcomes, reportingTasks);
-
-        copyTestResultsToOutputDirectory();
+        LOGGER.info("Starting generating reports: {} ms", stopwatch.lapTime());
+        Reporter.generateReportsFor(reportingTasks);
+        LOGGER.info("Finished generating test results for {} tests after {} ms",testOutcomes.getTestCount(), stopwatch.stop());
     }
 
-    private void addAssociatedTagReporters(TestOutcomes testOutcomes, FreemarkerContext context, List<ReportingTask> reportingTasks) {
-        int maxPossibleBatches = testOutcomes.getTags().size();
-        int totalBatches = (MAX_BATCHES < maxPossibleBatches) ? MAX_BATCHES : maxPossibleBatches;
-        for (int batch = 1; batch <= totalBatches; batch++) {
-            reportingTasks.add(new AssociatedTagReportingTask(context, environmentVariables, getOutputDirectory(), reportNameProvider)
-                    .forBatch(batch, totalBatches));
-        }
+    private List<String> requirementReportNamesFrom(RequirementsOutcomes requirementsOutcomes, ReportNameProvider reportNameProvider) {
+        return convert(requirementsOutcomes.getFlattenedRequirementOutcomes(), toRequirementReportNames(reportNameProvider));
     }
 
-    private void generateReportsFor(final TestOutcomes testOutcomes, List<ReportingTask> reportingTasks) throws IOException {
-        stopwatch.start();
-
-        ExecutorService executor = Executors.newFixedThreadPool(REPORT_GENERATION_THREAD_POOL_SIZE);
-
-        for (final ReportingTask reportingTask : reportingTasks) {
-            Runnable worker = new Runnable() {
-
+    private Converter<RequirementOutcome, String> toRequirementReportNames(final ReportNameProvider reportNameProvider) {
+            return new Converter<RequirementOutcome, String>() {
                 @Override
-                public void run() {
-                    try {
-                        reportingTask.generateReportsFor(testOutcomes);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                public String convert(RequirementOutcome from) {
+                    return reportNameProvider.forRequirement(from.getRequirement());
                 }
             };
-            executor.execute(worker);
-        }
-        LOGGER.debug("Shutting down Test outcome reports generation");
-        executor.shutdown();
-        while (!executor.isTerminated()) {}
-
-        LOGGER.debug("Test outcome reports generated in {} ms", stopwatch.stop());
     }
 
     private TestOutcomes loadTestOutcomesFrom(File sourceDirectory) throws IOException {
@@ -230,6 +241,10 @@ public class HtmlAggregateStoryReporter extends HtmlReporter implements UserStor
         }
     }
 
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
     public void setJiraPassword(String jiraPassword) {
         if (jiraPassword != null) {
             getSystemProperties().setValue(ThucydidesSystemProperty.JIRA_PASSWORD, jiraPassword);
@@ -243,6 +258,43 @@ public class HtmlAggregateStoryReporter extends HtmlReporter implements UserStor
             return requirementsConfiguration.getRequirementTypes();
         } else {
             return types;
+        }
+    }
+
+    public List<TestTag> getTags() {
+        if (tags == null) {
+            return new ArrayList<>();
+        }
+
+        List<String> tagValues = Splitter.on(",").trimResults().splitToList(tags);
+        return convert(tagValues, toTags());
+    }
+
+    private Converter<String, TestTag> toTags() {
+        return new Converter<String, TestTag>(){
+
+            @Override
+            public TestTag convert(String from) {
+                return TestTag.withValue(from);
+            }
+        };
+    }
+
+    public void setGenerateTestOutcomeReports() {
+        this.generateTestOutcomeReports = true;
+    }
+
+    private class CopyResourcesTask implements ReportingTask {
+        @Override
+        public void generateReports() throws IOException {
+            copyResourcesToOutputDirectory();
+        }
+    }
+
+    private class CopyTestResultsTask implements ReportingTask {
+        @Override
+        public void generateReports() throws IOException {
+            copyTestResultsToOutputDirectory();
         }
     }
 }

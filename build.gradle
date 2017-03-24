@@ -24,18 +24,19 @@ subprojects {
 }
 
 ext {
-    seleniumVersion = '3.0.1'
+    seleniumVersion = '3.3.1'
     htmlunitVersion = '2.23'
     groovyVersion = '2.4.4'
     gradleVersion = '2.10'
 
     junitVersion = '4.12'
     hamcrestVersion = '1.3'
-    springVersion = '4.1.6.RELEASE'
-    guavaVersion = '19.0'
+    springVersion = '4.3.5.RELEASE'
+    springBootVersion = '1.4.3.RELEASE'
+    guavaVersion = '20.0'
     restAssuredVersion = '2.4.1'
     mockitoCoreVersion = '1.10.19'
-    jbehaveCoreVersion = '4.0.5'
+    jbehaveCoreVersion = '4.1'
     commonsIoVersion = '2.5'
     commonsCollectionsVersion = '3.2.2'
     commonsLang3Version = '3.4'
@@ -68,7 +69,7 @@ allprojects {
     configurations.all {
         resolutionStrategy {
             // fail fast on dependency convergence problems
-           // failOnVersionConflict()
+           failOnVersionConflict()
 
             // force versions to fix dependency convergence problems
             // when updating this list, update Serenity's declared deps if exists
@@ -77,9 +78,10 @@ allprojects {
             force  "com.thoughtworks.xstream:xstream:${xstreamVersion}",
                    "commons-collections:commons-collections:${commonsCollectionsVersion}",
                    'commons-logging:commons-logging:1.2',
-                    'xml-apis:xml-apis:1.4.01',
-                    'org.seleniumhq.selenium:selenium-support:3.0.1',
-                    'org.seleniumhq.selenium:selenium-remote-driver:3.0.1'
+                   'xml-apis:xml-apis:1.4.01',
+                    'org.springframework:spring-context:4.3.5.RELEASE',
+                    'org.seleniumhq.selenium:selenium-support:3.3.1',
+                    'org.seleniumhq.selenium:selenium-remote-driver:3.3.1'
         }
     }
 }

@@ -1,11 +1,10 @@
 package net.thucydides.core.requirements.classpath;
 
 import com.google.common.base.Optional;
-import net.thucydides.core.guice.Injectors;
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
 import net.thucydides.core.requirements.model.Requirement;
 import net.thucydides.core.requirements.model.RequirementTypeAt;
 import net.thucydides.core.requirements.model.RequirementsConfiguration;
-import net.thucydides.core.util.EnvironmentVariables;
 
 import java.util.Collection;
 import java.util.List;
@@ -57,7 +56,7 @@ public class LeafRequirementAdder {
         this.rootPackage = rootPackage;
         this.requirementsDepth = requirementsDepth;
         this.activeRequirementTypes = activeRequirementTypes;
-        this.requirementsConfiguration = new RequirementsConfiguration(Injectors.getInjector().getInstance(EnvironmentVariables.class));
+        this.requirementsConfiguration = new RequirementsConfiguration(ConfiguredEnvironment.getEnvironmentVariables());
     }
 
 
@@ -109,7 +108,8 @@ public class LeafRequirementAdder {
             parent = humanize(secondLastOf(featurePathElements));
         }
 
-        int startFromRequirementLevel = requirementsConfiguration.getRequirementTypes().size() - requirementsDepth;
+        int startFromRequirementLevel = requirementsConfiguration.startLevelForADepthOf(requirementsDepth);
+
         String typeByLevel = requirementsConfiguration.getRequirementType(startFromRequirementLevel + featurePathElements.size() - 1);
         String type = PackageInfoNarrative.type().definedInPath(path).or(typeByLevel);
 

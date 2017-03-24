@@ -100,21 +100,21 @@ public class ReportNameProvider {
     }
 
     public String forRequirement(Requirement requirement) {
-        return reportNamer.getNormalizedTestNameFor(prefixUsing(context) + "requirement_" + requirement.qualifiedName());
+        return reportNamer.getNormalizedTestNameFor(prefixUsing(context) + requirement.getType() + "_" + requirement.qualifiedName());
     }
 
     public String forRequirement(TestTag tag) {
-        return forRequirement(tag.getName());
+        return forRequirement(tag.getName(), tag.getType());
     }
 
     public String forRequirementOrTag(TestTag tag) {
         return (requirementsService.isRequirementsTag(tag))
-                ? forRequirement(tag.getName())
+                ? forRequirement(tag.getName(), tag.getType())
                 : forTag(tag);
     }
 
-    public String forRequirement(String requirementName) {
-        return reportNamer.getNormalizedTestNameFor(prefixUsing(context) + "requirement_" + requirementName);
+    public String forRequirement(String requirementName, String requirementType) {
+        return reportNamer.getNormalizedTestNameFor(prefixUsing(context) + requirementType + "_" + requirementName);
     }
 
     public String forRelease(Release release) {

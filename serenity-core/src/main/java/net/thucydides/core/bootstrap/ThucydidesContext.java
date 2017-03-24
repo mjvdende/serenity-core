@@ -1,7 +1,7 @@
 package net.thucydides.core.bootstrap;
 
 import com.google.common.base.Optional;
-import net.thucydides.core.guice.Injectors;
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
 import net.thucydides.core.model.TestOutcome;
 import net.thucydides.core.pages.Pages;
 import net.thucydides.core.reports.ReportService;
@@ -60,8 +60,8 @@ class ThucydidesContext {
     }
 
     private ThucydidesContext(String defaultDriver, StepListener... additionalListeners) {
-        configuration = Injectors.getInjector().getInstance(Configuration.class);
-        webdriverManager = ThucydidesWebDriverSupport.getWebdriverManager();// Injectors.getInjector().getInstance(WebdriverManager.class);
+        configuration = ConfiguredEnvironment.getConfiguration();
+        webdriverManager = ThucydidesWebDriverSupport.getWebdriverManager();
         outputDirectory = configuration.getOutputDirectory();
         this.defaultDriver = defaultDriver;
         if (defaultDriver != null) {

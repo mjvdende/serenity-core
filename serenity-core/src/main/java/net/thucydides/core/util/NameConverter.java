@@ -1,9 +1,11 @@
 package net.thucydides.core.util;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.Locale;
+import java.util.*;
 
 /**
  * Utility class to convert test case and method names into human-readable form.
@@ -25,18 +27,24 @@ public final class NameConverter {
      * @return the human-readable form
      */
     public static String humanize(final String name) {
+
         if ((name == null) || (name.trim().length() == 0)) {
             return "";
         }
-
         if (name.contains(" ") && !thereAreParametersIn(name)) {
             return name;
         } else if (thereAreParametersIn(name)) {
             return humanizeNameWithParameters(name);
         } else {
+
             String noUnderscores = name.replaceAll("_", " ");
             String splitCamelCase = splitCamelCase(noUnderscores);
+
+            Set<Acronym> acronyms = Acronym.acronymsIn(splitCamelCase);
             String capitalized = StringUtils.capitalize(splitCamelCase);
+            for(Acronym acronym : acronyms) {
+                capitalized = acronym.restoreIn(capitalized);
+            }
             return restoreAbbreviations(capitalized);
         }
     }
@@ -68,25 +76,38 @@ public final class NameConverter {
      * @return the name with spaces instead of underscores
      */
     public static String splitCamelCase(final String name) {
-        StringBuffer splitWords = new StringBuffer();
+        List<String> splitWords = new ArrayList<>();
 
-        // AbcDef
+        List<String> phrases = Splitter.on(" ").omitEmptyStrings().splitToList(name);
+
+        for(String phrase : phrases) {
+            splitWords.addAll(splitWordsIn(phrase));
+        }
+
+        String splitPhrase = Joiner.on(" ").join(splitWords);
+        return splitPhrase.trim();
+    }
+
+    private static List<String> splitWordsIn(String phrase) {
+
+        List<String> splitWords = new ArrayList<>();
+
         String currentWord = "";
-        for (int index = 0; index < name.length(); index++) {
-            if (onWordBoundary(name, index)) {
-                splitWords.append(lowercaseOrAcronym(currentWord)).append(" ");
-                currentWord = String.valueOf(name.charAt(index));
+        for (int index = 0; index < phrase.length(); index++) {
+            if (onWordBoundary(phrase, index)) {
+                splitWords.add(lowercaseOrAcronym(currentWord));
+                currentWord = String.valueOf(phrase.charAt(index));
             } else {
-                currentWord = currentWord + (name.charAt(index));
+                currentWord = currentWord + (phrase.charAt(index));
             }
         }
-        splitWords.append(lowercaseOrAcronym(currentWord));
+        splitWords.add(lowercaseOrAcronym(currentWord));
 
-        return splitWords.toString().trim();
+        return splitWords;
     }
 
     private static String lowercaseOrAcronym(String word) {
-        if (StringUtils.isAllUpperCase(word) && word.length() > 1) {
+        if (Acronym.isAnAcronym(word)) {
             return word;
         } else {
             return StringUtils.lowerCase(word);
@@ -159,18 +180,59 @@ public final class NameConverter {
     public static String underscore(final String name) {
         if (name != null) {
             return name.replaceAll(" ", "_")
-                    .replaceAll("<", "_")
-                    .replaceAll(">", "_")
-                    .replaceAll("'", "_")
-                    .replaceAll(",", "_")
-                    .replaceAll(":", "_")
-                    .replaceAll("/", "_")
-                    .replaceAll("\"", "_")
-                    .replaceAll("=", "_")
+                    .replaceAll("<", "_lt_")
+                    .replaceAll(">", "underscore_gt_")
+                    .replaceAll("'", "_sq_")
+                    .replaceAll("\"", "_dq_")
+                    .replaceAll(",", "_c_")
+                    .replaceAll(":", "_cl_")
+                    .replaceAll(";", "_sc_")
+                    .replaceAll("/", "_sl_")
+                    .replaceAll("=", "_eq_")
                     .toLowerCase(Locale.getDefault()).trim();
         } else {
             return "";
         }
+    }
+
+    private final static Map<Character, String> EXCLUDE_FROM_FILENAMES = new HashMap<>();
+    static {
+        EXCLUDE_FROM_FILENAMES.put('$', "_");
+        EXCLUDE_FROM_FILENAMES.put('/', "_");
+        EXCLUDE_FROM_FILENAMES.put('\\', "_");
+        EXCLUDE_FROM_FILENAMES.put(':', "_");
+        EXCLUDE_FROM_FILENAMES.put(';', "_");
+        EXCLUDE_FROM_FILENAMES.put('<', "_lt_");
+        EXCLUDE_FROM_FILENAMES.put('>', "_gt_");
+        EXCLUDE_FROM_FILENAMES.put('[', "_obr_");
+        EXCLUDE_FROM_FILENAMES.put(']', "_cbr_");
+        EXCLUDE_FROM_FILENAMES.put('{', "_obrc_");
+        EXCLUDE_FROM_FILENAMES.put('}', "_cbrc_");
+        EXCLUDE_FROM_FILENAMES.put('*', "_star_");
+        EXCLUDE_FROM_FILENAMES.put('^', "_caret_");
+        EXCLUDE_FROM_FILENAMES.put('%', "_per_");
+        EXCLUDE_FROM_FILENAMES.put('"', "_quote_");
+        EXCLUDE_FROM_FILENAMES.put('?', "_question_");
+        EXCLUDE_FROM_FILENAMES.put('|', "_pipe_");
+        EXCLUDE_FROM_FILENAMES.put('&', "_amp_");
+        EXCLUDE_FROM_FILENAMES.put(',', "_comma_");
+        EXCLUDE_FROM_FILENAMES.put('=', "_equals_");
+        EXCLUDE_FROM_FILENAMES.put('\'', "_");
+        EXCLUDE_FROM_FILENAMES.put('\"', "_");
+        EXCLUDE_FROM_FILENAMES.put('@', "_at_");
+        EXCLUDE_FROM_FILENAMES.put('#', "_hash_");
+        EXCLUDE_FROM_FILENAMES.put('+', "_plus_");
+        EXCLUDE_FROM_FILENAMES.put(' ', "_");
+    }
+
+    public static String filesystemSafe(final String name) {
+        if (name == null) { return name; }
+
+        String safeName = name.trim();
+        for(Character substitutableChar : EXCLUDE_FROM_FILENAMES.keySet()) {
+            safeName = StringUtils.replace(safeName, substitutableChar.toString(), EXCLUDE_FROM_FILENAMES.get(substitutableChar));
+        }
+        return safeName.toLowerCase();
     }
 
 }

@@ -4,6 +4,7 @@ import ch.lambdaj.function.convert.Converter;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import net.serenitybdd.core.time.Stopwatch;
 import net.thucydides.core.ThucydidesSystemProperty;
 import net.thucydides.core.guice.Injectors;
 import net.thucydides.core.images.ResizableImage;
@@ -24,8 +25,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +44,7 @@ import static net.thucydides.core.reports.html.ReportNameProvider.NO_CONTEXT;
 /**
  * Generates acceptance test results in HTML form.
  */
-public class HtmlAcceptanceTestReporter extends HtmlReporter implements AcceptanceTestReporter {
+public class HtmlAcceptanceTestReporter extends HtmlReporter implements AcceptanceTestReporter{
 
     private static final String DEFAULT_ACCEPTANCE_TEST_REPORT = "freemarker/default.ftl";
     private static final String DEFAULT_ACCEPTANCE_TEST_SCREENSHOT = "freemarker/screenshots.ftl";
@@ -75,6 +80,14 @@ public class HtmlAcceptanceTestReporter extends HtmlReporter implements Acceptan
         this.requirementsService = Injectors.getInjector().getInstance(RequirementsService.class);
     }
 
+    public HtmlAcceptanceTestReporter(final EnvironmentVariables environmentVariables,
+                                      final RequirementsService requirementsService,
+                                      final IssueTracking issueTracking) {
+        super(environmentVariables);
+        this.issueTracking = issueTracking;
+        this.requirementsService = requirementsService;
+    }
+
     private ReportNameProvider getReportNameProvider() {
         return new ReportNameProvider(NO_CONTEXT, ReportType.HTML, requirementsService);
     }
@@ -87,6 +100,8 @@ public class HtmlAcceptanceTestReporter extends HtmlReporter implements Acceptan
      * Generate an HTML report for a given test run.
      */
     public File generateReportFor(final TestOutcome testOutcome) throws IOException {
+
+        LOGGER.debug("GENERATE TEST OUTCOME REPORT FOR " + testOutcome.getName() + " in " + testOutcome.getReportName());
 
         Preconditions.checkNotNull(getOutputDirectory());
 
@@ -102,13 +117,35 @@ public class HtmlAcceptanceTestReporter extends HtmlReporter implements Acceptan
         addFormattersToContext(context);
         addTimestamp(testOutcome, context);
 
-        String htmlContents = mergeTemplate(DEFAULT_ACCEPTANCE_TEST_REPORT).usingContext(context);
+        String reportFilename = reportFor(storedTestOutcome);
+
+        LOGGER.info("GENERATING HTML REPORT FOR {} in {} in directory {}  ",
+                storedTestOutcome.getCompleteName() + (StringUtils.isNotEmpty(qualifier) ? "/" + qualifier : ""),
+                reportFilename,
+                getOutputDirectory());
+
         copyResourcesToOutputDirectory();
 
-        String reportFilename = reportFor(storedTestOutcome);
-        LOGGER.debug("GENERATING HTML REPORT FOR " + storedTestOutcome.getCompleteName() + (StringUtils.isNotEmpty(qualifier) ? "/" + qualifier : "") + " => " + reportFilename);
+        return generateReportPage(context, DEFAULT_ACCEPTANCE_TEST_REPORT, reportFilename);
+    }
 
-        return writeReportToOutputDirectory(reportFilename, htmlContents);
+
+    protected File generateReportPage(final Map<String, Object> context,
+                                      final String template,
+                                      final String outputFile) throws IOException {
+
+        Stopwatch stopwatch = Stopwatch.started();
+
+        LOGGER.debug("Generating report in {}", outputFile);
+
+        Path outputPath = getOutputDirectory().toPath().resolve(outputFile);
+        try(BufferedWriter writer = Files.newBufferedWriter(outputPath, StandardCharsets.UTF_8)) {
+            mergeTemplate(template).withContext(context).to(writer);
+            writer.flush();
+        }
+
+        LOGGER.debug("Generated report {} in {} ms", outputFile, stopwatch.stop());
+        return outputPath.toFile();
     }
 
     private boolean containsScreenshots(TestOutcome testOutcome) {
@@ -194,8 +231,9 @@ public class HtmlAcceptanceTestReporter extends HtmlReporter implements Acceptan
         addFormattersToContext(context);
         context.put("screenshots", screenshots);
         context.put("narrativeView", testOutcome.getReportName());
-        String htmlContents = mergeTemplate(DEFAULT_ACCEPTANCE_TEST_SCREENSHOT).usingContext(context);
-        writeReportToOutputDirectory(screenshotReport, htmlContents);
+
+        generateReportPage(context, DEFAULT_ACCEPTANCE_TEST_SCREENSHOT, screenshotReport);
+
     }
 
     private List<Screenshot> expandScreenshots(List<Screenshot> screenshots) throws IOException {

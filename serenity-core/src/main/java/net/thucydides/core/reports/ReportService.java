@@ -4,6 +4,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import com.typesafe.config.ConfigValueFactory;
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
 import net.thucydides.core.ThucydidesSystemProperty;
 import net.thucydides.core.guice.Injectors;
 import net.thucydides.core.model.TestOutcome;
@@ -118,7 +119,7 @@ public class ReportService {
      */
     public void generateConfigurationsReport(){
 
-        final Configuration configuration = Injectors.getInjector().getInstance(Configuration.class);
+        final Configuration configuration = ConfiguredEnvironment.getConfiguration();
         Config config = ConfigFactory.empty();
 
         config = config.withValue(ThucydidesSystemProperty.THUCYDIDES_OUTPUT_DIRECTORY.preferredName(),
@@ -159,7 +160,7 @@ public class ReportService {
             }));
         }
         generateJUnitTestResults(testOutcomes);
-        waitForReportGenerationToFinish(executorService, tasks);
+        waitForReportGenerationToFinish(tasks);
         LOGGER.debug("Reports generated in: " + (System.currentTimeMillis() - t0) + " ms");
 
     }
@@ -175,7 +176,7 @@ public class ReportService {
         }
     }
 
-    private void waitForReportGenerationToFinish(ExecutorService executorService, List<Future> tasks) {
+    private void waitForReportGenerationToFinish(List<Future> tasks) {
         try {
             for (Future task : tasks) {
                 task.get();

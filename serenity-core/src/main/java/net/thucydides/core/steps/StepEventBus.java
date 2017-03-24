@@ -5,10 +5,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
 import net.serenitybdd.core.eventbus.Broadcaster;
 import net.thucydides.core.ThucydidesSystemProperty;
 import net.thucydides.core.events.TestLifecycleEvents;
-import net.thucydides.core.guice.Injectors;
 import net.thucydides.core.model.*;
 import net.thucydides.core.util.EnvironmentVariables;
 import org.slf4j.Logger;
@@ -42,7 +42,7 @@ public class StepEventBus {
      */
     public static synchronized StepEventBus getEventBus() {
         if (stepEventBusThreadLocal.get() == null) {
-            stepEventBusThreadLocal.set(new StepEventBus(Injectors.getInjector().getInstance(EnvironmentVariables.class)));
+            stepEventBusThreadLocal.set(new StepEventBus(ConfiguredEnvironment.getEnvironmentVariables()));
         }
         return stepEventBusThreadLocal.get();
     }
@@ -113,6 +113,13 @@ public class StepEventBus {
         clear();
         for (StepListener stepListener : getAllListeners()) {
             stepListener.testStarted(testName);
+        }
+    }
+
+    public void testStarted(final String testName, final String id) {
+        clear();
+        for (StepListener stepListener : getAllListeners()) {
+            stepListener.testStarted(testName, id);
         }
     }
 
@@ -292,10 +299,22 @@ public class StepEventBus {
      */
     public void stepStarted(final ExecutedStepDescription stepDescription) {
 
+        stepStarted(stepDescription, false);
+    }
+
+    /**
+     * Start the execution of a test step.
+     */
+    public void stepStarted(final ExecutedStepDescription stepDescription, boolean isPrecondition) {
+
         pushStep(stepDescription.getName());
 
         for (StepListener stepListener : getAllListeners()) {
             stepListener.stepStarted(stepDescription);
+        }
+
+        if (isPrecondition) {
+            baseStepListener.currentStepIsAPrecondition();
         }
     }
 
@@ -519,6 +538,10 @@ public class StepEventBus {
         getBaseStepListener().updateCurrentStepTitle(stepTitle);
     }
 
+    public void updateCurrentStepTitleAsPrecondition(String stepTitle) {
+        getBaseStepListener().updateCurrentStepTitle(stepTitle).asAPrecondition();
+    }
+
     public void addIssuesToCurrentStory(List<String> issues) {
         getBaseStepListener().addIssuesToCurrentStory(issues);
     }
@@ -666,4 +689,15 @@ public class StepEventBus {
         this.testSource = testSource;
     }
 
+    public void cancelPreviousTest() {
+        baseStepListener.cancelPreviousTest();
+    }
+
+    public void lastTestPassedAfterRetries(int remainingTries, List<String> failureMessages,TestFailureCause testFailureCause) {
+        baseStepListener.lastTestPassedAfterRetries(remainingTries, failureMessages,testFailureCause);
+    }
+
+    public static void overrideEventBusWith(StepEventBus stepEventBus) {
+        stepEventBusThreadLocal.set(stepEventBus);
+    }
 }

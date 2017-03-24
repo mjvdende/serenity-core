@@ -134,8 +134,8 @@
                         </#if>
                             <span class="test-case-title">
                                 <#assign testOutcomeTitle = testOutcome.unqualified.titleWithLinks >
-                                <span class="${outcome_text!ignore_color}">
-                                    ${formatter.htmlCompatible(testOutcomeTitle)}
+                                    <span class="${outcome_text!ignore_color}">
+                                    ${formatter.htmlCompatibleStoryTitle(testOutcomeTitle)}
                                     <#if (!testOutcome.titleWithIssues)>
                                         <span class="related-issue-title">${testOutcome.formattedIssues}</span>
                                     </#if>
@@ -147,7 +147,7 @@
                         <#if (testOutcome.descriptionText.isPresent() && testOutcome.descriptionText.get()?has_content)>
                             <div class="discreet-requirement-narrative-title">
                                 <br/>
-                                ${formatter.renderDescription(testOutcome.descriptionText.get())}
+                            ${formatter.renderDescription(testOutcome.descriptionText.get())}
                             </div>
                         </#if>
                         </td>
@@ -193,7 +193,7 @@
                     <tr>
                         <td class="test-${row.result}"><a href="#${rowIndex}">${rowIndex + 1}</a></td>
                         <#list row.values as value>
-                            <td class="test-${row.result}"><a href="#${rowIndex}">${formatter.htmlCompatible(value)}</a>
+                            <td class="test-${row.result}"><a href="#${rowIndex}">${formatter.plainHtmlCompatible(value)}</a>
                             </td>
                         </#list>
                     </tr>
@@ -258,15 +258,15 @@
                 </#if>
             </#macro>
 
-            <#macro stacktrace(cause) >
+            <#macro stacktrace(cause, id) >
                 <div><!-- Stack trace -->
                     <button type="button" class="btn btn-danger btn-sm" data-toggle="modal"
-                            data-target="#stacktraceModal">
+                            data-target="#stacktraceModal-${id}">
                         View stack trace
                     </button>
                 </div>
                 <!-- Modal -->
-                <div class="modal fade" id="stacktraceModal" tabindex="-1" role="dialog"
+                <div class="modal fade" id="stacktraceModal-${id}" tabindex="-1" role="dialog"
                      aria-labelledby="stacktraceModalLabel" aria-hidden="true">
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content">
@@ -280,7 +280,7 @@
                             </div>
                             <div class="modal-body">
                                 <#if (cause.message)??>
-                                    <h5>${formatter.htmlAttributeCompatible(cause.message)}</h5></#if>
+                                    <h5>${formatter.plainHtmlCompatible(cause.message)}</h5></#if>
                                 <#list cause.stackTrace as element>
                                 ${element.className}.${element.methodName}(${(element.fileName)!""}
                                     :${element.lineNumber}) <br>
@@ -445,7 +445,7 @@
                                 <pre>${formatter.htmlAttributeCompatible(errorMessageTitle,244)!''}</pre>
                             </div>
                             <#if step.nestedException?has_content>
-                                <@stacktrace cause=step.nestedException />
+                                <@stacktrace cause=step.nestedException id=step.number />
                             </#if>
                         </td>
                     </tr>
@@ -483,7 +483,7 @@
                         ${formatter.htmlAttributeCompatible(testOutcome.conciseErrorMessage, 244)}
                             </span>
                         <#if (testOutcome.nestedTestFailureCause)??>
-                            <@stacktrace cause=testOutcome.nestedTestFailureCause />
+                            <@stacktrace cause=testOutcome.nestedTestFailureCause id="overall" />
                         </#if>
                     </#if>
                 </td>

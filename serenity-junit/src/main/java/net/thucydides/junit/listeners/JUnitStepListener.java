@@ -13,7 +13,7 @@ import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 
 import java.io.File;
-import java.util.List;
+import java.util.*;
 
 /**
  * Intercepts JUnit events and reports them to Thucydides.
@@ -22,6 +22,7 @@ public class JUnitStepListener extends RunListener {
 
     private BaseStepListener baseStepListener;
     private StepListener[] extraListeners;
+    private Map<String,List<String>> failedTests = Collections.synchronizedMap(new HashMap<String,List<String>>());
     private Class<?> testClass;
     private boolean testStarted;
 
@@ -56,9 +57,13 @@ public class JUnitStepListener extends RunListener {
         super.testRunStarted(description);
     }
 
+    StepEventBus stepEventBus() {
+        return baseStepListener.getEventBus();
+    }
+
     @Override
     public void testRunFinished(Result result) throws Exception {
-        StepEventBus.getEventBus().testRunFinished();
+        stepEventBus().testRunFinished();
         super.testRunFinished(result);
     }
 
@@ -70,9 +75,9 @@ public class JUnitStepListener extends RunListener {
     public void testStarted(final Description description) {
         if (testingThisTest(description)) {
             startTestSuiteForFirstTest(description);
-            StepEventBus.getEventBus().clear();
-            StepEventBus.getEventBus().setTestSource(StepEventBus.TEST_SOURCE_JUNIT);
-            StepEventBus.getEventBus().testStarted(
+            stepEventBus().clear();
+            stepEventBus().setTestSource(StepEventBus.TEST_SOURCE_JUNIT);
+            stepEventBus().testStarted(
                     Optional.fromNullable(description.getMethodName()).or("Initialisation"),
                     description.getTestClass());
             startTest();
@@ -81,7 +86,7 @@ public class JUnitStepListener extends RunListener {
 
     private void startTestSuiteForFirstTest(Description description) {
         if (!getBaseStepListener().testSuiteRunning()) {
-            StepEventBus.getEventBus().testSuiteStarted(description.getTestClass());
+            stepEventBus().testSuiteStarted(description.getTestClass());
         }
     }
 
@@ -89,8 +94,8 @@ public class JUnitStepListener extends RunListener {
     public void testFinished(final Description description) throws Exception {
         if (testingThisTest(description)) {
             updateResultsUsingTestAnnotations(description);
-            StepEventBus.getEventBus().testFinished();
-            StepEventBus.getEventBus().setTestSource(null);
+            stepEventBus().testFinished();
+            stepEventBus().setTestSource(null);
             endTest();
         }
     }
@@ -103,16 +108,27 @@ public class JUnitStepListener extends RunListener {
     }
 
     private void updateResultsForExpectedException(Class<? extends Throwable> expected) {
-        StepEventBus.getEventBus().exceptionExpected(expected);
+        stepEventBus().exceptionExpected(expected);
     }
 
     @Override
     public void testFailure(final Failure failure) throws Exception {
         if (testingThisTest(failure.getDescription())) {
             startTestIfNotYetStarted(failure.getDescription());
-            StepEventBus.getEventBus().testFailed(failure.getException());
+            stepEventBus().testFailed(failure.getException());
+            updateFailureList(failure);
             endTest();
         }
+    }
+
+    private void updateFailureList(Failure failure) {
+        String failedClassName = failure.getDescription().getClassName();
+        List<String> failedMethods = failedTests.get(failedClassName);
+        if(failedMethods == null) {
+            failedMethods = new ArrayList<>();
+            failedTests.put(failedClassName,failedMethods);
+        }
+        failedMethods.add(failure.getDescription().getMethodName());
     }
 
     private void startTestIfNotYetStarted(Description description) {
@@ -124,7 +140,7 @@ public class JUnitStepListener extends RunListener {
     @Override
     public void testIgnored(final Description description) throws Exception {
         if (testingThisTest(description)) {
-            StepEventBus.getEventBus().testIgnored();
+            stepEventBus().testIgnored();
             endTest();
         }
     }
@@ -144,7 +160,7 @@ public class JUnitStepListener extends RunListener {
     public void dropListeners() {
         StepEventBus.getEventBus().dropListener(baseStepListener);
         for(StepListener listener : extraListeners) {
-            StepEventBus.getEventBus().dropListener(listener);
+            stepEventBus().dropListener(listener);
         }
     }
 
@@ -161,6 +177,10 @@ public class JUnitStepListener extends RunListener {
 
     protected Class<?> getTestClass() {
         return testClass;
+    }
+
+    public Map<String,List<String>> getFailedTests(){
+        return failedTests;
     }
 
 }

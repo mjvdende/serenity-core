@@ -5,7 +5,7 @@ import com.google.common.collect.Sets;
 import net.thucydides.core.ThucydidesSystemProperty;
 import net.thucydides.core.guice.Injectors;
 import net.thucydides.core.util.EnvironmentVariables;
-import net.thucydides.core.webdriver.SystemPropertiesConfiguration;
+import net.thucydides.core.configuration.SystemPropertiesConfiguration;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
@@ -17,10 +17,7 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class RootDirectory {
@@ -43,14 +40,18 @@ public class RootDirectory {
     /**
      * Find the root directory in the classpath or on the file system from which the requirements will be read.
      */
-    public Set<String> getRootDirectoryPaths() throws IOException {
+    public Set<String> getRootDirectoryPaths() {
 
-        if (ThucydidesSystemProperty.THUCYDIDES_TEST_REQUIREMENTS_BASEDIR.isDefinedIn(environmentVariables)) {
-            return getRootDirectoryFromRequirementsBaseDir();
-        } else {
-            return firstDefinedOf(getRootDirectoryFromClasspath(),
-                    getFileSystemDefinedDirectory(),
-                    getRootDirectoryFromWorkingDirectory());
+        try {
+            if (ThucydidesSystemProperty.THUCYDIDES_TEST_REQUIREMENTS_BASEDIR.isDefinedIn(environmentVariables)) {
+                return getRootDirectoryFromRequirementsBaseDir();
+            } else {
+                return firstDefinedOf(getRootDirectoryFromClasspath(),
+                        getFileSystemDefinedDirectory(),
+                        getRootDirectoryFromWorkingDirectory());
+            }
+        } catch(IOException e) {
+            return new HashSet<>();
         }
     }
 

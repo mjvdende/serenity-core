@@ -1,7 +1,7 @@
 package net.thucydides.core.webdriver;
 
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
 import net.thucydides.core.annotations.TestCaseAnnotations;
-import net.thucydides.core.guice.Injectors;
 import net.thucydides.core.pages.Pages;
 import net.thucydides.core.steps.StepAnnotations;
 import net.thucydides.core.steps.StepFactory;
@@ -34,13 +34,13 @@ public class ThucydidesWebDriverSupport {
 
         WebdriverManager webdriverManagerForThisThread = newWebdriverManager();
 
-        setWebdriverManager(webdriverManagerForThisThread);//Injectors.getInjector().getInstance(WebdriverManager.class));
+        setWebdriverManager(webdriverManagerForThisThread);
         getWebdriverManager().overrideDefaultDriverType(requestedDriver);
     }
 
     private static WebdriverManager newWebdriverManager() {
         WebDriverFactory webDriverFactoryForThisThread = new WebDriverFactory();
-        Configuration globalConfiguration = Injectors.getInjector().getInstance(Configuration.class);
+        Configuration globalConfiguration = ConfiguredEnvironment.getConfiguration();
 
         return new SerenityWebdriverManager(webDriverFactoryForThisThread, globalConfiguration);
     }
@@ -112,11 +112,14 @@ public class ThucydidesWebDriverSupport {
 
 
     public static WebDriver getDriver() {
-        WebDriver driver;
+
+        initialize();
 
         if (webdriverManagerThreadLocal.get() == null) {
             return null;
         }
+
+        WebDriver driver;
 
         if (defaultDriverType.get() != null) {
             driver = getWebdriverManager().getWebdriver(defaultDriverType.get());
@@ -223,6 +226,9 @@ public class ThucydidesWebDriverSupport {
 
     public static String getDriversUsed() {
         if (webdriverManagerIsNotInstantiated()) {
+            return "";
+        }
+        if (getWebdriverManager().getActiveDriverTypes().isEmpty()) {
             return "";
         }
         return getWebdriverManager().getActiveDriverTypes().get(0);

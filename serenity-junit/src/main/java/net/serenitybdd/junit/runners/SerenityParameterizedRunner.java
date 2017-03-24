@@ -1,5 +1,6 @@
 package net.serenitybdd.junit.runners;
 
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
 import net.thucydides.core.batches.BatchManager;
 import net.thucydides.core.guice.Injectors;
 import net.thucydides.core.model.DataTable;
@@ -168,7 +169,7 @@ public class SerenityParameterizedRunner extends Suite {
      * @throws Throwable Cause shit happens
      */
     public SerenityParameterizedRunner(final Class<?> klass) throws Throwable {
-        this(klass, Injectors.getInjector().getInstance(Configuration.class), new WebDriverFactory(),
+        this(klass, ConfiguredEnvironment.getConfiguration(), new WebDriverFactory(),
                 Injectors.getInjector().getInstance(BatchManager.class));
     }
 

@@ -107,6 +107,7 @@ public enum ThucydidesSystemProperty {
      * Where should reports be generated (use the system property 'thucydides.outputDirectory').
      */
     THUCYDIDES_OUTPUT_DIRECTORY("thucydides.outputDirectory"),
+    SERENITY_OUTPUT_DIRECTORY("serenity.outputDirectory"),
 
     /**
      * Default name of report with configurations. It will contains some values that was used during generation of reports
@@ -185,6 +186,8 @@ public enum ThucydidesSystemProperty {
 
     THUCYDIDES_REPORT_TAG_MENUS,
 
+    THUCYDIDES_EXCLUDE_UNRELATED_REQUIREMENTS_OF_TYPE,
+
     /**
      * Restart the browser every so often during data-driven tests.
      */
@@ -209,6 +212,7 @@ public enum ThucydidesSystemProperty {
      */
     THUCYDIDES_STEP_DELAY,
 
+
     /**
      * How long should the driver wait for elements not immediately visible, in seconds.
      */
@@ -222,7 +226,9 @@ public enum ThucydidesSystemProperty {
 
     /**
      * Use the same browser for all tests (the "Highlander" rule)
+     * @Deprecated: Use THUCYDIDES_RESTART_BROWSER_FOR_EACH instead.
      */
+    @Deprecated
     THUCYDIDES_USE_UNIQUE_BROWSER,
 
     /**
@@ -293,6 +299,11 @@ public enum ThucydidesSystemProperty {
      *  Redimension the browser to enable larger screenshots.
      */
     THUCYDIDES_BROWSER_WIDTH,
+
+    /**
+     * Set to true to get WebDriver to maximise the Browser window before the tests are executed.
+     */
+    THUCYDIDES_BROWSER_MAXIMIZED,
 
     /**
      * If set, resize screenshots to this size to save space.
@@ -625,7 +636,7 @@ public enum ThucydidesSystemProperty {
      * Set to true if you want the HTML source code to be recorded as well as the screenshots.
      * This is not currently used in the reports.
      */
-    THUCYDIDES_STORE_HTML_SOURCE,
+    //    THUCYDIDES_STORE_HTML_SOURCE,
 
     /**
      * If set to true, a copy of the original screenshot will be kept when screenshots are scaled for the reports.
@@ -664,7 +675,9 @@ public enum ThucydidesSystemProperty {
     OUTPUT_FORMATS,
 
     /**
-     * If set to true (the default), allow markdown formatting in step titles and descriptions
+     * If set to true (the default), allow markdown formatting in test outcome titles and descriptions.
+     * This is a comma-separated lists of values from the following: story, narrative, step
+     * By default, Markdown is enabled for story titles and narrative texts, but not for steps.
      */
     ENABLE_MARKDOWN,
 
@@ -708,6 +721,12 @@ public enum ThucydidesSystemProperty {
     DASHBOARD_TAG_LIST,
 
     /**
+     * If set to false, render report names in a readable form as opposed to a hash format.
+     * Note: this can cause problems on operating systems that limit path lengths such as Windows.
+     */
+    SERENITY_COMPRESS_FILENAMES,
+
+    /**
      * If set, this will define the list of tag types to be excluded from the dashboard screens
      */
     DASHBOARD_EXCLUDED_TAG_LIST,
@@ -723,11 +742,6 @@ public enum ThucydidesSystemProperty {
      * Defaults to UTF-8
      */
     JSON_CHARSET,
-
-    /**
-     * If set to true, the RetryFilteringRunNotifier will be used to attempt to rerun failing tests.
-     */
-    JUNIT_RETRY_TESTS,
 
     /**
      * Stack traces are by default decluttered for readability.
@@ -844,7 +858,27 @@ public enum ThucydidesSystemProperty {
     /**
      * Use this property to specify the maximum number of times to rerun the failing tests.
      */
-    TEST_RETRY_COUNT;
+    TEST_RETRY_COUNT,
+
+    /**
+     * Use this property to specify the maximum number of times to rerun the failing tests for cucumber tests.
+     */
+    TEST_RETRY_COUNT_CUCUMBER,
+
+    /**
+     * Record failures to a file specified by property rerun.failures.file or rerun.xml in current directory
+     */
+    RECORD_FAILURES,
+
+    /**
+     * Replay failures from a file specified by property rerun.failures.file or rerun.xml in current directory
+     */
+    REPLAY_FAILURES,
+
+    /**
+     * Location of the directory where the failure files are recorded.
+     */
+    RERUN_FAILURES_DIRECTORY;
 
     private String propertyName;
     public static final int DEFAULT_HEIGHT = 700;

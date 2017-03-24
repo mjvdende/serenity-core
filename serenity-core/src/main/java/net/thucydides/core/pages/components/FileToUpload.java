@@ -1,7 +1,10 @@
 package net.thucydides.core.pages.components;
 
+import net.serenitybdd.core.pages.WebElementFacade;
+import net.serenitybdd.core.webdriver.ConfigureFileDetector;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
+import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.remote.LocalFileDetector;
 import org.openqa.selenium.remote.RemoteWebElement;
@@ -18,9 +21,12 @@ public class FileToUpload {
     static final String WINDOWS_PATH_PATTERN = "^[A-Z]:\\\\.*";
 
     private static Pattern fullWindowsPath = Pattern.compile(WINDOWS_PATH_PATTERN);
+    private final WebDriver driver;
     private boolean remoteDriver = false;
 
-    public FileToUpload(final String filename) {
+    public FileToUpload(WebDriver driver, final String filename) {
+        this.driver = driver;
+
         if (isOnTheClasspath(filename)) {
             this.filename = getFileFromResourcePath(filename);
         } else {
@@ -65,17 +71,16 @@ public class FileToUpload {
 
 
     public void to(final WebElement uploadFileField) {
-        if (isRemoteDriver()) {
-            LocalFileDetector detector = new LocalFileDetector();
-            File localFile = detector.getLocalFile(osSpecificPathOf(filename));
-            if (uploadFileField instanceof RemoteWebElement)
-                ((RemoteWebElement) uploadFileField).setFileDetector(detector);
-            String absolutePath = localFile.getAbsolutePath();
-            uploadFileField.sendKeys(absolutePath);
-        } else {
-            uploadFileField.sendKeys(osSpecificPathOf(filename));
-        }
+
+        String filePath = uploadableFilePathTo(uploadFileField).forFile(filename);
+
+        uploadFileField.sendKeys(osSpecificPathOf(filePath));
     }
+
+    private FilePathLocator uploadableFilePathTo(WebElement uploadFileField) {
+        return (isRemoteDriver()) ? new RemoteFilePathLocator(uploadFileField) : new LocalFilePathLocator();
+    }
+
 
     public boolean isRemoteDriver() {
         return remoteDriver;
@@ -100,5 +105,46 @@ public class FileToUpload {
         return StringUtils.replace(bareFilename,"/","\\");
     }
 
+    public FileToUpload fromLocalMachine() {
+        ConfigureFileDetector.forDriver(driver);
+        return this;
+    }
+
+    private class LocalFilePathLocator implements FilePathLocator {
+
+        public LocalFilePathLocator() {}
+
+        @Override
+        public String forFile(String filename) {
+            return osSpecificPathOf(filename);
+        }
+    }
+
+    interface FilePathLocator {
+        String forFile(String filename);
+    }
+
+    class RemoteFilePathLocator implements FilePathLocator {
+
+        private final WebElement uploadFileField;
+
+        public RemoteFilePathLocator(WebElement uploadFileField) {
+
+            this.uploadFileField = uploadFileField;
+        }
+
+        @Override
+        public String forFile(String filename) {
+            LocalFileDetector detector = new LocalFileDetector();
+            File localFile = detector.getLocalFile(osSpecificPathOf(filename));
+            WebElement resolvedField = (uploadFileField instanceof WebElementFacade)
+                    ? ((WebElementFacade) uploadFileField).getWrappedElement() : uploadFileField;
+
+            if (resolvedField instanceof RemoteWebElement) {
+                ((RemoteWebElement) resolvedField).setFileDetector(detector);
+            }
+            return localFile.getAbsolutePath();
+        }
+    }
 }
 

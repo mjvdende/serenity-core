@@ -1,10 +1,12 @@
 package net.thucydides.core.annotations;
 
 import com.google.common.base.Optional;
-import net.thucydides.core.guice.Injectors;
-import net.thucydides.core.webdriver.SystemPropertiesConfiguration;
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
+import net.thucydides.core.webdriver.Configuration;
+import net.thucydides.core.configuration.SystemPropertiesConfiguration;
 import net.thucydides.core.webdriver.ThucydidesWebDriverSupport;
 import net.thucydides.core.webdriver.WebdriverManager;
+import org.junit.runner.RunWith;
 import org.openqa.selenium.WebDriver;
 
 import java.util.List;
@@ -21,7 +23,7 @@ import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 public final class TestCaseAnnotations {
 
     private final Object testCase;
-    private final SystemPropertiesConfiguration configuration;
+    private final Configuration configuration;
 
     public TestCaseAnnotations(final Object testCase, SystemPropertiesConfiguration configuration) {
         this.testCase = testCase;
@@ -30,7 +32,7 @@ public final class TestCaseAnnotations {
 
     public TestCaseAnnotations(final Object testCase) {
         this.testCase = testCase;
-        this.configuration = Injectors.getInjector().getInstance(SystemPropertiesConfiguration.class);
+        this.configuration = ConfiguredEnvironment.getConfiguration();
     }
 
     public static TestCaseAnnotations forTestCase(final Object testCase) {
@@ -98,11 +100,17 @@ public final class TestCaseAnnotations {
     }
 
     public static boolean isWebTest(Class<?> testClass) {
-        return findOptionalAnnotatedField(testClass).isPresent();
+        return (testClass != null) && findOptionalAnnotatedField(testClass).isPresent();
     }
 
     public static boolean shouldClearCookiesBeforeEachTestIn(Class<?> testClass) {
         ManagedWebDriverAnnotatedField webDriverField = findFirstAnnotatedField(testClass);
         return webDriverField.getClearCookiesPolicy() == ClearCookiesPolicy.BeforeEachTest;
+    }
+
+    public static boolean isASerenityTestCase(Class<?> testClass) {
+        return (testClass != null)
+                && (testClass.getAnnotation(RunWith.class) != null)
+                && (testClass.getAnnotation(RunWith.class).value().toString().contains("Serenity"));
     }
 }

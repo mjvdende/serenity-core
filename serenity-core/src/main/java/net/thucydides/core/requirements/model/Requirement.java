@@ -23,6 +23,7 @@ public class Requirement implements Comparable {
 
     private String displayName;
     private String name;
+    private String id;
     private String type;
     private String featureFileName;
     private CustomFieldValue narrative;
@@ -41,18 +42,18 @@ public class Requirement implements Comparable {
         customFields = Lists.newArrayList();
     }
 
-    protected Requirement(String name, String displayName, String cardNumber, String parent, String type, CustomFieldValue narrative,
+    protected Requirement(String name, String id, String displayName, String cardNumber, String parent, String type, CustomFieldValue narrative,
                           List<Requirement> children, List<Example> examples,
                           List<String> releaseVersions) {
-        this(name, displayName, cardNumber, parent, type, narrative, children, examples,releaseVersions, Collections.EMPTY_LIST);
+        this(name, id, displayName, cardNumber, parent, type, narrative, children, examples,releaseVersions, Collections.EMPTY_LIST);
     }
 
-    protected Requirement(String name, String displayName, String cardNumber, String parent, String type, CustomFieldValue narrative) {
-        this(name, displayName, cardNumber, parent, type, narrative, Collections.EMPTY_LIST, Collections.EMPTY_LIST,Collections.EMPTY_LIST,
+    protected Requirement(String name, String id, String displayName, String cardNumber, String parent, String type, CustomFieldValue narrative) {
+        this(name, id, displayName, cardNumber, parent, type, narrative, Collections.EMPTY_LIST, Collections.EMPTY_LIST,Collections.EMPTY_LIST,
                  Collections.EMPTY_LIST);
     }
 
-    protected Requirement(String name, String displayName, String cardNumber, String parent, String type,  CustomFieldValue narrative,
+    protected Requirement(String name, String id, String displayName, String cardNumber, String parent, String type,  CustomFieldValue narrative,
                           List<Requirement> children, List<Example> examples,
                           List<String> releaseVersions,
                           List<CustomFieldValue> customFields,
@@ -60,7 +61,8 @@ public class Requirement implements Comparable {
         Preconditions.checkNotNull(name);
         Preconditions.checkNotNull(type);
         this.name = name;
-        this.displayName = displayName;
+        this.id = id;
+        this.displayName = (displayName != null) ? displayName : name;
         this.cardNumber = cardNumber;
         this.type = type;
         this.parent = parent;
@@ -72,7 +74,7 @@ public class Requirement implements Comparable {
         this.featureFileName = featureFileName;
     }
 
-    protected Requirement(String name, String displayName, String cardNumber, String parent, String type,  CustomFieldValue narrative,
+    protected Requirement(String name, String id, String displayName, String cardNumber, String parent, String type,  CustomFieldValue narrative,
                           List<Requirement> children,
                           List<Example> examples,
                           List<String> releaseVersions,
@@ -80,7 +82,8 @@ public class Requirement implements Comparable {
         Preconditions.checkNotNull(name);
         Preconditions.checkNotNull(type);
         this.name = name;
-        this.displayName = displayName;
+        this.id = id;
+        this.displayName = (displayName != null) ? displayName : name;;
         this.cardNumber = cardNumber;
         this.type = type;
         this.parent = parent;
@@ -95,8 +98,12 @@ public class Requirement implements Comparable {
         return name;
     }
 
+    public String getId() {
+        return id;
+    }
+
     public String getDisplayName() {
-        return displayName;
+        return (displayName != null) ? displayName : name;
     }
 
     public String getType() {
@@ -152,12 +159,12 @@ public class Requirement implements Comparable {
     }
 
     public Requirement definedInFile(File featureFile) {
-        return new Requirement(this.name, this.displayName, this.cardNumber, this.parent, this.type,  this.narrative,
+        return new Requirement(this.name, this.id, this.displayName, this.cardNumber, this.parent, this.type,  this.narrative,
                                 this.children, this.examples, this.releaseVersions,  this.customFields, featureFile.getName());
     }
 
     public Requirement withChildren(List<Requirement> children) {
-        return new Requirement(this.name, this.displayName, this.cardNumber, this.parent, this.type,  this.narrative, children, examples, releaseVersions, customFields, featureFileName);
+        return new Requirement(this.name, this.id, this.displayName, this.cardNumber, this.parent, this.type,  this.narrative, children, examples, releaseVersions, customFields, featureFileName);
     }
 
     public void setChildren(List<Requirement> children) {
@@ -165,38 +172,38 @@ public class Requirement implements Comparable {
     }
 
     public Requirement withParent(String parent) {
-        return new Requirement(this.name, this.displayName, this.cardNumber, parent, this.type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
+        return new Requirement(this.name,  this.id, this.displayName, this.cardNumber, parent, this.type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
     }
 
 
     public Requirement withType(String type) {
-        return new Requirement(this.name, this.displayName, this.cardNumber, this.parent, type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
+        return new Requirement(this.name, this.id, this.displayName, this.cardNumber, this.parent, type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
     }
 
     public Requirement withDisplayName(String displayName) {
-        return new Requirement(this.name, displayName, this.cardNumber, this.parent, type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
+        return new Requirement(this.name, this.id, displayName, this.cardNumber, this.parent, type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
     }
 
     public Requirement withFeatureFileyName(String featureFileName) {
-        return new Requirement(this.name, displayName, this.cardNumber, this.parent, type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
+        return new Requirement(this.name, this.id, displayName, this.cardNumber, this.parent, type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
     }
 
     public Requirement withExample(Example example) {
         List<Example> updatedExamples = Lists.newArrayList(examples);
         updatedExamples.add(example);
-        return new Requirement(this.name, this.displayName, this.cardNumber, this.parent, this.type, this.narrative, children, updatedExamples, releaseVersions, customFields, featureFileName);
+        return new Requirement(this.name, this.id, this.displayName, this.cardNumber, this.parent, this.type, this.narrative, children, updatedExamples, releaseVersions, customFields, featureFileName);
     }
 
     public Requirement withExamples(List<Example> examples) {
-        return new Requirement(this.name, this.displayName, this.cardNumber,  this.parent, this. type,this.narrative, children, examples, releaseVersions, customFields, featureFileName);
+        return new Requirement(this.name, this.id, this.displayName, this.cardNumber,  this.parent, this. type,this.narrative, children, examples, releaseVersions, customFields, featureFileName);
     }
 
     public Requirement withReleaseVersions(List<String> releaseVersions) {
-        return new Requirement(this.name, this.displayName, this.cardNumber, this.parent, this.type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
+        return new Requirement(this.name, this.id, this.displayName, this.cardNumber, this.parent, this.type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
     }
 
     public Requirement withCustomFields(List<CustomFieldValue> customFields) {
-        return new Requirement(this.name, this.displayName, this.cardNumber, this.parent, this.type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
+        return new Requirement(this.name, this.id, this.displayName, this.cardNumber, this.parent, this.type, this.narrative, children, examples, releaseVersions, customFields, featureFileName);
     }
 
 
@@ -230,6 +237,7 @@ public class Requirement implements Comparable {
 
         Requirement that = (Requirement) o;
 
+        if (id != null ? !id.equals(that.id) : that.id != null) return false;
         if (name != null ? !name.equals(that.name) : that.name != null) return false;
         if (parent != null ? !parent.equals(that.parent) : that.parent != null) return false;
         if (type != null ? !type.equals(that.type) : that.type != null) return false;
@@ -259,8 +267,6 @@ public class Requirement implements Comparable {
                 "name='" + name + '\'' +
                 ", type='" + type + '\'' + " parent = '" + parent + '\'' +
                 ", cardNumber='" + cardNumber + '\'' +
-                ", narrative ='" + narrative + '\'' +
-                ", children ='" + children + '\'' +
                 '}';
     }
 
@@ -268,7 +274,7 @@ public class Requirement implements Comparable {
         List<Requirement> newChildren = Lists.newArrayList(children);
         newChildren.remove(child);
         newChildren.add(child);
-        return new Requirement(name,displayName,cardNumber,parent, type, narrative, newChildren, examples,releaseVersions);
+        return new Requirement(name, id, displayName,cardNumber,parent, type, narrative, newChildren, examples,releaseVersions);
     }
 
     public CustomFieldSetter withCustomField(String fieldName) {
@@ -305,9 +311,6 @@ public class Requirement implements Comparable {
     }
 
     public String qualifier() {
-//        if (getCardNumber() != null) {
-//            return getCardNumber();
-//        }
         return (getParent() != null) ? getParent() : null;
     }
 
@@ -319,7 +322,7 @@ public class Requirement implements Comparable {
     public Requirement merge(Requirement newRequirement) {
 
         String mergedCardNumber = isEmpty(cardNumber) ? newRequirement.cardNumber : cardNumber;
-        String mergedDisplayName= isEmpty(displayName) ? newRequirement.displayName : displayName;
+        String mergedDisplayName= (isEmpty(displayName) || name.equalsIgnoreCase(displayName))  ? newRequirement.displayName : displayName;
         String mergedNarrativeText = isEmpty(narrative.getText()) ? newRequirement.narrative.getText() : narrative.getText();
         String mergedFeatureFileName = isEmpty(featureFileName) ? newRequirement.featureFileName : featureFileName;
         List<String> mergedReleasVersions = ListUtils.union(releaseVersions, newRequirement.releaseVersions) ;
@@ -355,7 +358,7 @@ public class Requirement implements Comparable {
     }
 
     public Requirement withNarrative(String narrativeText) {
-        return new Requirement(this.name, this.displayName, this.cardNumber, parent, this.type, new CustomFieldValue("Narrative", narrativeText),
+        return new Requirement(this.name, this.id, this.displayName, this.cardNumber, parent, this.type, new CustomFieldValue("Narrative", narrativeText),
                                children, examples, releaseVersions, customFields, featureFileName);
     }
 
@@ -373,7 +376,7 @@ public class Requirement implements Comparable {
         public Requirement setTo(String value, String renderedValue) {
             List<CustomFieldValue> customFields = Lists.newArrayList(requirement.getCustomFieldValues());
             customFields.add(new CustomFieldValue(fieldName, value, renderedValue));
-            return new Requirement(requirement.name, requirement.displayName,
+            return new Requirement(requirement.name, requirement.id, requirement.displayName,
                     requirement.cardNumber, requirement.parent, requirement.type, requirement.narrative,
                     requirement.children, requirement.examples, requirement.releaseVersions,
                     customFields);

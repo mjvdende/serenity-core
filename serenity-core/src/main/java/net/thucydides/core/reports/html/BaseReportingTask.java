@@ -1,5 +1,6 @@
 package net.thucydides.core.reports.html;
 
+import net.serenitybdd.core.time.Stopwatch;
 import net.thucydides.core.reports.TestOutcomes;
 import net.thucydides.core.reports.csv.CSVReporter;
 import net.thucydides.core.util.EnvironmentVariables;
@@ -11,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 public abstract class BaseReportingTask implements ReportingTask {
@@ -29,13 +31,23 @@ public abstract class BaseReportingTask implements ReportingTask {
         this.outputDirectory = outputDirectory;
     }
 
-    public abstract void generateReportsFor(TestOutcomes testOutcomes) throws IOException;
+    public abstract void generateReports() throws IOException;
 
     protected void generateReportPage(final Map<String, Object> context,
                                     final String template,
                                     final String outputFile) throws IOException {
-        writeReportToOutputDirectory(outputFile,
-                                     mergeTemplate(template).usingContext(context));
+
+        Stopwatch stopwatch = Stopwatch.started();
+
+        LOGGER.debug("Generating report in {}", outputFile);
+
+        Path outputPath = outputDirectory.toPath().resolve(outputFile);
+        try(BufferedWriter writer = Files.newBufferedWriter(outputPath, StandardCharsets.UTF_8)) {
+            mergeTemplate(template).withContext(context).to(writer);
+            writer.flush();
+        }
+
+        LOGGER.debug("Generated report {} in {} ms", outputFile, stopwatch.stop());
     }
 
     protected Merger mergeTemplate(final String templateFile) {
@@ -47,23 +59,4 @@ public abstract class BaseReportingTask implements ReportingTask {
         CSVReporter csvReporter = new CSVReporter(outputDirectory, environmentVariables);
         csvReporter.generateReportFor(testOutcomes, reportName);
     }
-
-    protected File writeReportToOutputDirectory(final String reportFilename, final String htmlContents) throws
-            IOException {
-        File report = new File(outputDirectory, reportFilename);
-        writeToFile(htmlContents, report);
-        return report;
-    }
-
-    private void writeToFile(String htmlContents, File report) throws IOException {
-        String lines[] = htmlContents.split("\\r?\\n");
-        try (BufferedWriter writer = Files.newBufferedWriter(report.toPath(), StandardCharsets.UTF_8)){
-            for(String line : lines){
-                writer.write(line);
-                writer.newLine();
-            }
-        }
-    }
-
-
 }

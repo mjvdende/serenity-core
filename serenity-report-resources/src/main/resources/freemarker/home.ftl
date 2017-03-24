@@ -20,10 +20,13 @@
     <#include "components/test-outcomes.ftl">
 
 
-<#assign successfulManualTests = (testOutcomes.count("manual").withResult("SUCCESS") > 0)>
-<#assign pendingManualTests = (testOutcomes.count("manual").withResult("PENDING") > 0)>
-<#assign ignoredManualTests = (testOutcomes.count("manual").withResult("IGNORED") > 0)>
-<#assign failingManualTests = (testOutcomes.count("manual").withResult("FAILURE") > 0)>
+<#assign manualTests = testOutcomes.count("manual")>
+<#assign automatedTests = testOutcomes.count("automated")>
+
+<#assign successfulManualTests = (manualTests.withResult("SUCCESS") > 0)>
+<#assign pendingManualTests = (manualTests.withResult("PENDING") > 0)>
+<#assign ignoredManualTests = (manualTests.withResult("IGNORED") > 0)>
+<#assign failingManualTests = (manualTests.withResult("FAILURE") > 0)>
 
     <script class="code" type="text/javascript">$(document).ready(function () {
         var test_results_plot = $.jqplot('test_results_pie_chart', [
@@ -67,24 +70,24 @@
                 marginTop: '15px'
             },
             series: [
-                {label: '${testOutcomes.count("automated").withResult("success")} / ${testOutcomes.total} tests passed' },
+                {label: '${automatedTests.withResult("success")} / ${testOutcomes.total} tests passed' },
             <#if (successfulManualTests)>
-                {label: '${testOutcomes.count("manual").withResult("success")} / ${testOutcomes.total} manual tests passed' },
+                {label: '${manualTests.withResult("success")} / ${testOutcomes.total} manual tests passed' },
             </#if>
-                {label: '${testOutcomes.count("automated").withResult("pending")} / ${testOutcomes.total} tests pending'},
+                {label: '${automatedTests.withResult("pending")} / ${testOutcomes.total} tests pending'},
             <#if (pendingManualTests)>
-                {label: '${testOutcomes.count("manual").withResult("pending")} / ${testOutcomes.total} manual tests pending' },
+                {label: '${manualTests.withResult("pending")} / ${testOutcomes.total} manual tests pending' },
             </#if>
-                {label: '${testOutcomes.count("automated").withResult("ignored")} / ${testOutcomes.total} tests not executed'},
+                {label: '${automatedTests.withResult("ignored")} / ${testOutcomes.total} tests not executed'},
             <#if (ignoredManualTests)>
-                {label: '${testOutcomes.count("manual").withResult("ignored")} / ${testOutcomes.total} manual tests not executed' },
+                {label: '${manualTests.withResult("ignored")} / ${testOutcomes.total} manual tests not executed' },
             </#if>
-                {label: '${testOutcomes.count("automated").withResult("failure")} / ${testOutcomes.total} tests failed'},
+                {label: '${automatedTests.withResult("failure")} / ${testOutcomes.total} tests failed'},
             <#if (failingManualTests)>
-                {label: '${testOutcomes.count("manual").withResult("failure")} / ${testOutcomes.total} manual tests failed' },
+                {label: '${manualTests.withResult("failure")} / ${testOutcomes.total} manual tests failed' },
             </#if>
-                {label: '${testOutcomes.count("automated").withResult("error")} / ${testOutcomes.total} errors'},
-                {label: '${testOutcomes.count("automated").withResult("compromised")} / ${testOutcomes.total} compromised tests'}
+                {label: '${automatedTests.withResult("error")} / ${testOutcomes.total} errors'},
+                {label: '${automatedTests.withResult("compromised")} / ${testOutcomes.total} compromised tests'}
             ]
         });
 
@@ -130,25 +133,25 @@
                 marginTop: '15px'
             },
             series: [
-                {label: '${testOutcomes.count("automated").withResult("success")} / ${testOutcomes.total} tests passed (${testOutcomes.decimalPercentageSteps("automated").withResult("success")}% of all test steps)' },
+                {label: '${automatedTests.withResult("success")} / ${testOutcomes.total} tests passed (${testOutcomes.decimalPercentageSteps("automated").withResult("success")}% of all test steps)' },
             <#if (successfulManualTests)>
-                {label: '${testOutcomes.count("manual").withResult("success")} / ${testOutcomes.total} manual tests passed (${testOutcomes.decimalPercentageSteps("manual").withResult("success")}% of all test steps)' },
+                {label: '${manualTests.withResult("success")} / ${testOutcomes.total} manual tests passed (${testOutcomes.decimalPercentageSteps("manual").withResult("success")}% of all test steps)' },
             </#if>
-                {label: '${testOutcomes.count("automated").withResult("pending")} / ${testOutcomes.total} tests pending'},
+                {label: '${automatedTests.withResult("pending")} / ${testOutcomes.total} tests pending'},
             <#if (pendingManualTests)>
-                {label: '${testOutcomes.count("manual").withResult("pending")} / ${testOutcomes.total} manual tests pending' },
+                {label: '${manualTests.withResult("pending")} / ${testOutcomes.total} manual tests pending' },
             </#if>
-                {label: '${testOutcomes.count("automated").withResult("ignored")} / ${testOutcomes.total} tests not executed'},
+                {label: '${automatedTests.withResult("ignored")} / ${testOutcomes.total} tests not executed'},
             <#if (ignoredManualTests)>
-                {label: '${testOutcomes.count("manual").withResult("ignored")} / ${testOutcomes.total} manual tests not executed' },
+                {label: '${manualTests.withResult("ignored")} / ${testOutcomes.total} manual tests not executed' },
             </#if>
-                {label: '${testOutcomes.count("automated").withResult("failure")} / ${testOutcomes.total} tests failed (${testOutcomes.decimalPercentageSteps("automated").withResult("failure")}% of all test steps)'},
+                {label: '${automatedTests.withResult("failure")} / ${testOutcomes.total} tests failed (${testOutcomes.decimalPercentageSteps("automated").withResult("failure")}% of all test steps)'},
             <#if (failingManualTests)>
-                {label: '${testOutcomes.count("manual").withResult("failure")} / ${testOutcomes.total} manual tests failed (${testOutcomes.decimalPercentageSteps("manual").withResult("failure")}% of all test steps)' },
+                {label: '${manualTests.withResult("failure")} / ${testOutcomes.total} manual tests failed (${testOutcomes.decimalPercentageSteps("manual").withResult("failure")}% of all test steps)' },
             </#if>
-                {label: '${testOutcomes.count("automated").withResult("error")} / ${testOutcomes.total} errors (${testOutcomes.decimalPercentageSteps("automated").withResult("error")}% of all test steps)'}
+                {label: '${automatedTests.withResult("error")} / ${testOutcomes.total} errors (${testOutcomes.decimalPercentageSteps("automated").withResult("error")}% of all test steps)'}
             <#if (testOutcomes.count("automated").withResult("compromised") > 0)>
-                ,{label: '${testOutcomes.count("automated").withResult("compromised")} / ${testOutcomes.total} tests compromised (${testOutcomes.decimalPercentageSteps("automated").withResult("compromised")}% of all test steps)'}
+                ,{label: '${automatedTests.withResult("compromised")} / ${testOutcomes.total} tests compromised (${testOutcomes.decimalPercentageSteps("automated").withResult("compromised")}% of all test steps)'}
             </#if>
             ]
         });
@@ -216,7 +219,8 @@
             <#list breadcrumbs as breadcrumb>
                 <#assign breadcrumbReport = absoluteReportName.forRequirementOrTag(breadcrumb) />
                 <#assign breadcrumbTitle = inflection.of(breadcrumb.shortName).asATitle() >
-                > <a href="${breadcrumbReport}">${formatter.truncatedHtmlCompatible(breadcrumbTitle,30)}</a>
+                <#assign breadcrumbType = inflection.of(breadcrumb.type).asATitle() >
+                > <a href="${breadcrumbReport}" title="${breadcrumbTitle} (breadcrumbType)">${formatter.truncatedHtmlCompatible(breadcrumbTitle,20)}</a>
             </#list>
         <#else>
             <#if currentTagType?has_content>
@@ -224,7 +228,7 @@
             </#if>
         </#if>
             <#if testOutcomes.label?has_content>
-                > ${formatter.truncatedHtmlCompatible(inflection.of(testOutcomes.label).asATitle(),80)}
+                > ${formatter.truncatedHtmlCompatible(inflection.of(testOutcomes.label).asATitle(),60)}
             </#if>
         </span>
     </div>
@@ -260,15 +264,15 @@
             <#assign skippedReport = reportName.withPrefix(currentTag).forTestResult("skipped") >
             <#assign ignoredReport = reportName.withPrefix(currentTag).forTestResult("ignored") >
 
-            <#assign totalCount   = testOutcomes.totalTests.total >
-            <#assign successCount = testOutcomes.totalTests.withResult("success") >
-            <#assign pendingCount = testOutcomes.totalTests.withResult("pending") >
-            <#assign ignoredCount = testOutcomes.totalTests.withResult("ignored") >
-            <#assign skippedCount = testOutcomes.totalTests.withResult("skipped") >
-            <#assign failureCount = testOutcomes.totalTests.withResult("failure") >
-            <#assign errorCount   = testOutcomes.totalTests.withResult("error") >
+            <#assign totalCount   = testOutcomes.totalScenarios.total >
+            <#assign successCount = testOutcomes.totalScenarios.withResult("success") >
+            <#assign pendingCount = testOutcomes.totalScenarios.withResult("pending") >
+            <#assign ignoredCount = testOutcomes.totalScenarios.withResult("ignored") >
+            <#assign skippedCount = testOutcomes.totalScenarios.withResult("skipped") >
+            <#assign failureCount = testOutcomes.totalScenarios.withResult("failure") >
+            <#assign errorCount   = testOutcomes.totalScenarios.withResult("error") >
             <#assign brokenCount  = failureCount + errorCount >
-            <#assign compromisedCount = testOutcomes.totalTests.withResult("compromised") >
+            <#assign compromisedCount = testOutcomes.totalScenarios.withResult("compromised") >
 
                 <#if (successCount > 0)>
                     <span class="test-count"> |
@@ -291,7 +295,7 @@
                         ${brokenCount}
                         <#if (report.shouldDisplayResultLink)>
                             <a href="${relativeLink}${brokenReport}">unsuccessful</a>
-                        <#else>failed</#if>
+                        <#else>unsuccessful</#if>
                     </span>(
                     <span class="test-count">
                         ${failureCount}
@@ -348,7 +352,7 @@
                     <table>
                         <tr>
                             <td colspan="2">
-                                <span class="caption">Total number of tests that pass, fail, or are pending.</span>
+                                <span class="caption">Distribution of tests (including rows in data-driven tests) by test result.</span>
                                 <span class="togglePieChart" id="toggleNormalPieChart"><a href="#">Show/Hide Pie Chart</a></span>
                             </td>
                         </tr>

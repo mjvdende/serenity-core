@@ -25,20 +25,22 @@
 
 
 <#list requirements.types as requirementType>
-    <#assign successfulRequirements= requirements.requirementsOfType(requirementType).completedRequirementsCount >
-    <#assign pendingRequirements = requirements.requirementsOfType(requirementType).pendingRequirementsCount>
-    <#assign ignoredRequirements = requirements.requirementsOfType(requirementType).ignoredRequirementsCount >
-    <#assign failingRequirements = requirements.requirementsOfType(requirementType).failingRequirementsCount >
-    <#assign errorRequirements = requirements.requirementsOfType(requirementType).errorRequirementsCount  >
-    <#assign compromisedRequirements = requirements.requirementsOfType(requirementType).compromisedRequirementsCount  >
-    <#assign untesteddRequirements = requirements.requirementsOfType(requirementType).requirementsWithoutTestsCount >
+    <#assign requirementsOfType = requirements.requirementsOfType(requirementType) />
+    <#assign successfulRequirements= requirementsOfType.completedRequirementsCount >
+    <#assign pendingRequirements = requirementsOfType.pendingRequirementsCount>
+    <#assign ignoredRequirements = requirementsOfType.ignoredRequirementsCount >
+    <#assign failingRequirements = requirementsOfType.failingRequirementsCount >
+    <#assign errorRequirements = requirementsOfType.errorRequirementsCount  >
+    <#assign compromisedRequirements = requirementsOfType.compromisedRequirementsCount  >
+    <#assign untesteddRequirements = requirementsOfType.requirementsWithoutTestsCount >
 <#else>
-    <#assign successfulRequirements= testOutcomes.totalTests.withResult("success") >
-    <#assign pendingRequirements = testOutcomes.totalTests.withResult("pending") >
-    <#assign ignoredRequirements = testOutcomes.totalTests.withResult("ignored") + testOutcomes.totalTests.withResult("skipped")>
-    <#assign failingRequirements = testOutcomes.totalTests.withResult("failure") >
-    <#assign errorRequirements = testOutcomes.totalTests.withResult("error") >
-    <#assign compromisedRequirements = testOutcomes.totalTests.withResult("compromised") >
+    <#assign totalTests= testOutcomes.totalTests >
+    <#assign successfulRequirements= totalTests.withResult("success") >
+    <#assign pendingRequirements = totalTests.withResult("pending") >
+    <#assign ignoredRequirements = totalTests.withResult("ignored") + testOutcomes.totalTests.withResult("skipped")>
+    <#assign failingRequirements = totalTests.withResult("failure") >
+    <#assign errorRequirements = totalTests.withResult("error") >
+    <#assign compromisedRequirements = totalTests.withResult("compromised") >
     <#assign untesteddRequirements = 0 >
 </#list>
 
@@ -148,7 +150,7 @@
 
 <#if (requirements.parentRequirement.isPresent())>
     <#assign parentRequirement = requirements.parentRequirement.get() >
-    <#assign parentTitle = inflection.of(parentRequirement.name).asATitle() >
+    <#assign parentTitle = inflection.of(parentRequirement.displayName).asATitle() >
     <#assign parentType = inflection.of(parentRequirement.type).asATitle() >
     <#if (parentRequirement.cardNumber?has_content) >
         <#assign issueNumber = "[" + formatter.addLinks(parentRequirement.cardNumber) + "]" >
@@ -161,18 +163,19 @@
     <div id="contenttop">
         <div class="middlebg">
             <span class="breadcrumbs">
-            <a href='index.html'>Home</a> > Requirements
+            <a href='index.html'>Home</a> > <a href="capabilities.html">Requirements</a>
             <#if requirements.parentRequirement.isPresent()>
 
                 <#assign parent = requirements.parentRequirement.get()>
-                <#assign parentTitle = inflection.of(parent.asTag().shortName).asATitle() >
+                <#assign parentTitle = inflection.of(parent.displayName).asATitle() >
 
-                <#if (requirements.parentRequirement.get().parent?has_content)>
-                    <#assign rootReport = reportName.forRequirement(requirements.parentRequirement.get().parent) >
-                    <#assign rootTitle = inflection.of(requirements.parentRequirement.get().parent!).asATitle() >
-                    > <a href="${rootReport}">${rootTitle}</a>
+                <#if (requirements.grandparentRequirement.isPresent())>
+                    <#assign ancestor = reportName.forRequirement(requirements.grandparentRequirement.get()) >
+                    <#assign rootReport = reportName.forRequirement(requirements.grandparentRequirement.get()) >
+                    <#assign rootTitle = inflection.of(requirements.grandparentRequirement.get().displayName).asATitle() >
+                    > <a href="${rootReport}" title="${rootTitle}">${formatter.truncatedHtmlCompatible(rootTitle,40)}</a>
                 </#if>
-                > ${formatter.htmlCompatible(parentTitle)}
+                > ${formatter.truncatedHtmlCompatible(parentTitle,40)}
             </#if>
             </span>
         </div>
@@ -201,7 +204,7 @@
                     <h2><i class="fa fa-book"></i> ${parentType}: ${issueNumber} ${formatter.htmlCompatible(parentTitle)}</h2>
                     <#if parentRequirement.narrative.renderedText?has_content>
                         <div class="requirementNarrativeTitle">
-                        ${formatter.renderDescription(parentRequirement.narrative.renderedText)}
+                        ${formatter.addLineBreaks(formatter.renderDescription(parentRequirement.narrative.renderedText))}
                         </div>
                     </#if>
 

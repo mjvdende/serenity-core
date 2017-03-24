@@ -9,6 +9,7 @@ import net.serenitybdd.screenplay.events.*;
 import net.serenitybdd.screenplay.exceptions.IgnoreStepException;
 import net.serenitybdd.screenplay.formatting.FormattedTitle;
 import net.thucydides.core.annotations.Pending;
+import net.thucydides.core.steps.ExecutedStepDescription;
 import net.thucydides.core.steps.StepEventBus;
 
 import java.lang.reflect.Method;
@@ -26,6 +27,7 @@ public class Actor implements PerformsTasks, SkipNested {
 
     private Map<String, Object> notepad = newHashMap();
     private Map<Class, Ability> abilities = newHashMap();
+
 
     public Actor(String name) {
         this.name = name;
@@ -143,6 +145,23 @@ public class Actor implements PerformsTasks, SkipNested {
     }
 
 
+    public final void should(String groupStepName, Consequence... consequences) {
+
+        try {
+            String groupTitle = injectActorInto(groupStepName);
+            StepEventBus.getEventBus().stepStarted(ExecutedStepDescription.withTitle(groupTitle));
+            should(consequences);
+
+        } catch (Throwable error) {
+            throw error;
+        } finally {
+            StepEventBus.getEventBus().stepFinished();
+        }
+    }
+
+    private String injectActorInto(String groupStepName) {
+        return groupStepName.replaceAll("\\{0\\}", this.toString());
+    }
 
     public final void should(Consequence... consequences) {
 
@@ -163,19 +182,22 @@ public class Actor implements PerformsTasks, SkipNested {
     }
 
     private boolean anOutOfStepErrorOccurred() {
-        return eventBusInterface.aStepHasFailed()
-                && eventBusInterface.getStepCount() > taskTally.getPerformedTaskCount();
+        if (eventBusInterface.aStepHasFailedInTheCurrentExample()) {
+            return (eventBusInterface.getRunningStepCount()) > taskTally.getPerformedTaskCount();
+        } else {
+            return false;
+        }
     }
 
     private <T> void check(Consequence<T> consequence, ErrorTally errorTally) {
         try {
             eventBusInterface.startQuestion(FormattedTitle.ofConsequence(consequence));
             if (eventBusInterface.shouldIgnoreConsequences()) {
-                StepEventBus.getEventBus().stepIgnored();
+                eventBusInterface.reportStepIgnored();
             } else {
                 consequence.evaluateFor(this);
+                eventBusInterface.reportStepFinished();
             }
-            eventBusInterface.reportStepFinished();
         } catch (IgnoreStepException e) {
             eventBusInterface.reportStepIgnored();
         } catch (Throwable e) {

@@ -1,9 +1,9 @@
 package net.thucydides.core.model;
 
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
 import net.thucydides.core.digest.Digest;
-import net.thucydides.core.util.NameConverter;
-import org.apache.commons.lang3.StringUtils;
 
+import static net.thucydides.core.ThucydidesSystemProperty.SERENITY_COMPRESS_FILENAMES;
 import static net.thucydides.core.util.NameConverter.*;
 
 /**
@@ -21,7 +21,9 @@ public class ReportNamer {
     private boolean compressedFilename = true;
 
     private ReportNamer(final ReportType type) {
-        this(type, true);
+        this(type,
+             ConfiguredEnvironment.getEnvironmentVariables()
+                     .getPropertyAsBoolean(SERENITY_COMPRESS_FILENAMES.getPropertyName(), true));
     }
 
     public ReportNamer(ReportType type, boolean compressedFilename) {
@@ -36,19 +38,15 @@ public class ReportNamer {
     public String getNormalizedTestNameFor(final TestOutcome testOutcome) {
         String testName = getBaseTestNameFor(testOutcome);
         String testNameWithoutIndex = stripIndexesFrom(testName);
-        return appendSuffixTo(Digest.ofTextValue(testNameWithoutIndex));
+        return normalizedVersionOf(filesystemSafe(testNameWithoutIndex));
+    }
+
+    private String optionallyCompressed(String text) {
+        return compressedFilename ? Digest.ofTextValue(text) : text;
     }
 
     private String getBaseTestNameFor(TestOutcome testOutcome) {
-        String testName = "";
-
-        if (testOutcome.getUserStory() != null) {
-            testName = NameConverter.underscore(testOutcome.getUserStory().getName());
-        } else if (testOutcome.getPath() != null) {
-            testName = NameConverter.underscore(testOutcome.getPath());
-        }
-        String scenarioName = NameConverter.underscore(testOutcome.getQualifiedMethodName());
-        return pathFrom(testOutcome) + withNoIssueNumbers(appendToIfNotNull(testName, scenarioName));
+        return withNoIssueNumbers(testOutcome.getQualifiedId());
     }
 
 
@@ -57,25 +55,7 @@ public class ReportNamer {
      * version should have no spaces and have the XML file suffix.
      */
     public String getSimpleTestNameFor(final TestOutcome testOutcome) {
-        String testName = "";
-        if (testOutcome.getUserStory() != null) {
-            testName = NameConverter.underscore(testOutcome.getUserStory().getName());
-        }
-        String scenarioName = NameConverter.underscore(testOutcome.getName());
-        testName = pathFrom(testOutcome) + withNoIssueNumbers(withNoArguments(appendToIfNotNull(testName, scenarioName)));
-        return appendSuffixTo(Digest.ofTextValue(testName));
-    }
-
-    private String pathFrom(TestOutcome testOutcome) {
-        return (testOutcome.getPath() != null) ? testOutcome.getPath() + "/" : "";
-    }
-
-    private String appendToIfNotNull(final String baseString, final String nextElement) {
-        if (StringUtils.isNotEmpty(baseString)) {
-            return baseString + "_" + nextElement;
-        } else {
-            return nextElement;
-        }
+        return optionallyCompressed(appendSuffixTo(withNoIssueNumbers(testOutcome.getQualifiedId())));
     }
 
     public String getNormalizedTestNameFor(final Story userStory) {
@@ -83,9 +63,11 @@ public class ReportNamer {
     }
 
     public String getNormalizedTestNameFor(String name) {
-        String testNameWithUnderscores = NameConverter.underscore(name.toLowerCase());
-        return (compressedFilename) ? appendSuffixTo(Digest.ofTextValue(testNameWithUnderscores))
-                : appendSuffixTo(testNameWithUnderscores);
+        return normalizedVersionOf(underscore(name.toLowerCase()));
+    }
+
+    private String normalizedVersionOf(String text) {
+        return (compressedFilename) ? appendSuffixTo(Digest.ofTextValue(text)) : appendSuffixTo(text);
     }
 
     private String appendSuffixTo(final String testNameWithUnderscores) {

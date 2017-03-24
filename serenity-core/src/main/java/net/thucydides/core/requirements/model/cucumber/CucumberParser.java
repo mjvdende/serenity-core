@@ -5,8 +5,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import gherkin.formatter.model.Tag;
 import gherkin.parser.Parser;
+import net.serenitybdd.core.environment.ConfiguredEnvironment;
 import net.thucydides.core.ThucydidesSystemProperty;
-import net.thucydides.core.guice.Injectors;
 import net.thucydides.core.requirements.model.Narrative;
 import net.thucydides.core.util.EnvironmentVariables;
 import org.apache.commons.io.FileUtils;
@@ -26,7 +26,7 @@ public class CucumberParser {
     private final String encoding;
 
     public CucumberParser() {
-        this(Injectors.getInjector().getInstance(EnvironmentVariables.class));
+        this(ConfiguredEnvironment.getEnvironmentVariables());
     }
 
 
@@ -55,8 +55,10 @@ public class CucumberParser {
             List<String> versionNumbers = findVersionNumberInTags(tagsDefinedIn(gherkinStructure));
             String title = gherkinStructure.getFeature().getName();
             String text = gherkinStructure.getFeature().getDescription();
+            String id = gherkinStructure.getFeature().getId();
 
             return Optional.of(new Narrative(Optional.fromNullable(title),
+                    Optional.fromNullable(id),
                     Optional.fromNullable(cardNumber),
                     versionNumbers,
                     "feature",

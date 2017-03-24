@@ -19,6 +19,12 @@ public class ContainsTextMatcher<T extends WebElementState> extends TypeSafeMatc
 
     @Override
     public void describeTo(Description description) {
-        description.appendText("contains").appendText(expectedText);
+        description.appendText("an element containing '").appendText(expectedText).appendText("'");
     }
+
+    @Override
+    protected void describeMismatchSafely(T item, Description mismatchDescription) {
+        mismatchDescription.appendText("was ").appendText(WebElementStateDescription.forElement(item));
+    }
+
 }
